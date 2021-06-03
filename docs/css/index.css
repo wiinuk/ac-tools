@@ -1,0 +1,9 @@
+body {
+    background: rgb(54, 54, 54);
+}
+#main {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
