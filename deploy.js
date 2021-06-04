@@ -11,6 +11,6 @@ run("npm", "run", "build")
 
 const [currentBranchName] = run("git", "symbolic-ref", "--short", "HEAD")
 run("git", "add", ".")
-run("git", "commit", "--all", "-m", `${__filename} による自動コミット`)
+run("git", "commit", "--all", "-m", `"${__filename} による自動コミット"`)
 run("git", "pull")
 run("git", "push", "origin", currentBranchName)
