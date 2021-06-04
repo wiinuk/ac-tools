@@ -6,7 +6,7 @@ const { spawn } = require("child_process")
  * @param {{ inheritStdio: boolean }} _arg1
  * @returns {Promise<{ signal: string, output: string }>}
  */
- const runCore = (command, { inheritStdio }) => new Promise((onSuccess, onError) => {
+const runCore = (command, { inheritStdio }) => new Promise((onSuccess, onError) => {
     console.log(`> ${command}`)
     const child = spawn(command, [], { shell: true, stdio: inheritStdio ? "inherit" : undefined })
     /** @type {string[]} */
