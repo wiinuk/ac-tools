@@ -9,7 +9,6 @@ const run = (/** @type {string} */ arg0, /** @type {string[]} */ ...args) => {
 run("npm", "install")
 run("npm", "run", "build")
 
-const [currentBranchName] = run("git", "symbolic-ref", "--short", "HEAD")
 run("git", "add", ".")
 run("git", "-c", `user.name=action@github.com`, "-c", `user.email="GitHub Action"`, "commit", "--all", "-m", `"${__filename} による自動コミット"`)
-run("git", "push", "origin", currentBranchName)
+run("git", "push")
