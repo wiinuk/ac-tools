@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+/* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 const { run, invoke } = require("./shell")
 const path = require("path")
