@@ -1,23 +1,16 @@
 //@ts-check
-const { execSync } = require("child_process")
-const run = (/** @type {TemplateStringsArray} */ template, /** @type {unknown[]} */ ...substitutions) => {
-    const command = String.raw(template, substitutions)
-    console.log(`> ${command}`)
-    return execSync(command, { stdio: "inherit", encoding: "utf-8" })
+const { spawnSync } = require("child_process")
+const run = (/** @type {string} */ arg0, /** @type {string[]} */ ...args) => {
+    console.log(`> ${arg0}${args.map(x => ` ${x}`).join("")}`)
+    const result = spawnSync(arg0, args, { shell: true, stdio: "inherit", encoding: "utf-8" })
+    if (result.error || result.status !== 0) { throw result.error ?? result }
+    return result.output
 }
-run`npm install`
-run`npm run build`
+run("npm", "install")
+run("npm", "run", "build")
 
-const remoteName = "origin"
-const remoteBranchName = "gh-pages"
-const temporaryBranchName = `__temp-${remoteBranchName}`
-const message = `${__filename} による自動コミット`
-
-const currentBranchName = run`git symbolic-ref --short HEAD`
-run`git checkout -b ${temporaryBranchName} ${remoteName}/${remoteBranchName}`
-run`git add .`
-run`git commit --all --message="${message}"`
-run`git pull`
-run`git push ${remoteName} ${remoteBranchName}`
-run`git checkout ${currentBranchName}`
-run`git --delete ${temporaryBranchName}`
+const [currentBranchName] = run("git", "symbolic-ref", "--short", "HEAD")
+run("git", "add", ".")
+run("git", "commit", "--all", "-m", `${__filename} による自動コミット`)
+run("git", "pull")
+run("git", "push", "origin", currentBranchName)
