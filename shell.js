@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 const { spawn } = require("child_process")
@@ -55,7 +54,7 @@ const runCore = (command, { inheritStdio }) => new Promise((onSuccess, onError) 
  * @param  {...unknown} args
  * @returns {Promise<{ signal: string }>}
  */
-const run = (command, ...args) => runCore(String.raw(command, args), { inheritStdio: true })
+const run = (command, ...args) => runCore(String.raw(command, ...args), { inheritStdio: true })
 exports.run = run
 
 /**
@@ -63,5 +62,5 @@ exports.run = run
  * @param  {...unknown} args
  * @returns {Promise<string>}
  */
-const invoke = async (command, ...args) => (await runCore(String.raw(command, args), { inheritStdio: false })).output
+const invoke = async (command, ...args) => (await runCore(String.raw(command, ...args), { inheritStdio: false })).output
 exports.invoke = invoke
