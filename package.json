@@ -3,17 +3,22 @@
   "scripts": {
     "eslint:run": "eslint src/**/*.{ts,tsx}",
     "webpack:build": "webpack --mode=production",
-    "build": "npm run eslint:run && npm run webpack:build",
-    "watch": "webpack --watch"
+    "build": "npm run eslint:run && npm run webpack:build && npm run test",
+    "watch": "webpack --watch",
+    "test": "jest"
   },
   "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
+    "@types/jest": "^26.0.23",
     "@types/react": "^17.0.9",
     "@types/react-dom": "^17.0.6",
     "@typescript-eslint/eslint-plugin": "^4.26.0",
     "@typescript-eslint/parser": "^4.26.0",
     "eslint": "^7.27.0",
+    "jest": "^27.0.4",
+    "ts-jest": "^27.0.2",
     "ts-loader": "^9.2.2",
+    "ts-node": "^10.0.0",
     "typescript": "^4.3.2",
     "webpack": "^5.38.1",
     "webpack-cli": "^4.7.0"
