@@ -24,8 +24,8 @@ describe("findBreedParents", () => {
         ])
     })
     test("見分けられる交配のみを対象としているか", () => {
-        const kinds = Object.keys(flowerSpec) as FlowerKind[]
-        const kind = q.sum(...kinds.map(k => q.pure(k)))
+        const kinds = Object.keys(flowerSpec) as readonly string[] as readonly [FlowerKind, ...FlowerKind[]]
+        const kind = q.elements(...kinds)
         const allele = q.elements(_00, _01, _11)
         const gene3 = q.tuple(allele, allele, allele, q.pure(_u))
         q.tuple(kind, gene3).check(([kind, childGene]) => {
