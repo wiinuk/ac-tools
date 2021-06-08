@@ -4,5 +4,8 @@
     "source.fixAll.eslint": true
   },
   "editor.formatOnSaveMode": "modifications",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "cSpell.words": [
+    "qcheck"
+  ]
 }

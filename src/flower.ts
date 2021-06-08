@@ -70,7 +70,8 @@ const geneEquals = (g1: Gene, g2: Gene) => {
     return true
 }
 
-const flowerColor = (kind: FlowerKind, gene: Gene) => {
+/** @internal */
+export const flowerColor = (kind: FlowerKind, gene: Gene) => {
     const [color] = specs[kind]
         .find(([, , g]) => geneEquals(g, gene))
         ?? error(`内部エラー: 花の仕様が見つかりませんでした。kind: ${kind}, gene: ${JSON.stringify(gene)}`)
@@ -102,8 +103,9 @@ const geneKey = ([a1, a2, a3, a4]: Gene) => (a1 << 6) | (a2 << 4) | (a3 << 2) | 
 
 /**
  * 指定された遺伝子を持つ親を交配したとき生まれる子の、重複のない一覧を返す
+ * @internal
  */
-const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (readonly [count: number, childGene: Gene])[] => {
+export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (readonly [count: number, childGene: Gene])[] => {
     const [p11, p12, p13, p14] = parent1Gene
     const [p21, p22, p23, p24] = parent2Gene
     const as1 = childAlleles(p11, p21)
