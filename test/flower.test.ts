@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@jest/globals"
-import { childAlleles, findBreedParents, flowerColor, FlowerKind, getChildGenes, _00, _01, _11, _u } from "../src/flower"
+import { childAlleles, findBreedParents, findBreedTree, flowerColor, FlowerKind, getChildGenes, _00, _01, _11, _u } from "../src/flower"
 import * as q from "qcheck"
 import flowerSpec from "../src/flower-spec"
 
@@ -95,5 +95,47 @@ describe("flower.findBreedParents", () => {
                     .length
             ).toEqual(1)
         })
+    })
+})
+
+describe("flower.findBreedTree", () => {
+    test("バラ-00-00-00-01 から バラ-00-00-00-11 への交配木", () => {
+        expect(findBreedTree(
+            "バラ",
+            [[_00, _00, _00, _01]],
+            [_00, _00, _00, _11], {
+            distinguishedOnlyByColor: false
+        })).toStrictEqual(
+            ["Breed",
+                ["Root", [0, 0, 0, 1]],
+                ["Root", [0, 0, 0, 1]],
+                [_00, _00, _00, _11]
+            ]
+        )
+    })
+    test("キク-{01-00-00,00-11-00,00-00-11} から キク-00-11-11 への交配木", () => {
+        expect(findBreedTree(
+            "キク",
+            [
+                [_01, _00, _00, _u], // 白種
+                [_00, _11, _00, _u], // 黄種
+                [_00, _00, _11, _u], // 赤種
+            ],
+            [_00, _11, _11, _u] // 緑
+        )).toStrictEqual(
+            ["Breed",
+                ["Breed",
+                    ["Root", [_00, _11, _00, _u]],
+                    ["Root", [_00, _00, _11, _u]],
+                    [_00, _01, _01, _u]
+                ],
+                ["Breed",
+                    ["Root", [_00, _11, _00, _u]],
+                    ["Root", [_00, _00, _11, _u]],
+                    [_00, _01, _01, _u]
+                ],
+                [_00, _11, _11, _u]
+            ]
+        )
     })
 })
