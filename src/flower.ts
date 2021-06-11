@@ -1,7 +1,6 @@
 
 import spec from "./flower-spec"
 import { fill as fillOptions, FilledOptions, optionSpec, OptionsSpecToOptions } from "./options"
-import * as AStar from "./a-star"
 
 type flowerSpecOfRawSpecs<rawSpecs> =
     rawSpecs extends readonly (infer rawSpec)[]
@@ -19,12 +18,14 @@ type FlowerSpec =
     : never
 
 type FlowerSpecs = { readonly [k in FlowerKind]: readonly FlowerSpec[] }
-export type FlowerKind = keyof rawSpec
+export type FlowerKind = "バラ" | "コスモス" | "チューリップ" | "パンジー" | "ユリ" | "アネモネ" | "ヒヤシンス" | "キク"
 type FlowerColor = FlowerSpec[0]
 type _FlowerTag = FlowerSpec[1]
-type Gene = FlowerSpec[2]
+type Gene = readonly [Allele, Allele, Allele, Allele]
 export type FlowerGene = Gene
-type Allele = Gene extends readonly (infer a)[] ? a : never
+type Allele11 = 0 | 1 | 3
+type UndefinedAllele = 2
+type Allele = Allele11 | UndefinedAllele
 const specs: FlowerSpecs = spec
 
 export const _u = 0b10
@@ -162,7 +163,8 @@ const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gen
  * 指定された子🧬を生成する親🧬の交配ペアを列挙する
  * @internal
  */
-export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: FilledFindPathToRootsOptions): readonly (readonly [Gene, Gene])[] => {
+export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: FilledFindBreedTreeOptions): readonly (readonly [Gene, Gene])[] => {
+    const childColor = flowerColor(kind, childGene)
     const result: (readonly [Gene, Gene])[] = []
     const [allele1, allele2, allele3, allele4] = childGene
     const allele1Pairs = allelePairs(allele1)
@@ -181,7 +183,7 @@ export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: Fil
                     const parent1Gene = [p1[0], p2[0], p3[0], p4[0]] as const
                     const parent2Gene = [p1[1], p2[1], p3[1], p4[1]] as const
 
-                    if (options.distinguishedOnlyByColor && hasDuplicatedChildColor(kind, parent1Gene, parent2Gene, flowerColor(kind, childGene))) { continue }
+                    if (options.distinguishedOnlyByColor && hasDuplicatedChildColor(kind, parent1Gene, parent2Gene, childColor)) { continue }
                     result.push([parent1Gene, parent2Gene])
                 }
             }
@@ -190,27 +192,108 @@ export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: Fil
     return result
 }
 
-const optionsSpec = {
+const findBreedTreeOptionsSpec = {
     /** 交配するとき、子が色で見分けられないなら除外する */
     distinguishedOnlyByColor: optionSpec("boolean", true)
 }
-type FindPathToRootsOptions = OptionsSpecToOptions<typeof optionsSpec>
-type FilledFindPathToRootsOptions = FilledOptions<typeof optionsSpec>
+type FindBreedTreeOptions = OptionsSpecToOptions<typeof findBreedTreeOptionsSpec>
+type FilledFindBreedTreeOptions = FilledOptions<typeof findBreedTreeOptionsSpec>
 
+type BreedBranch = readonly [
+    kind: "Breed",
+    parent1: BreedTree,
+    parent2: BreedTree,
+    child: Gene,
+]
+type BreedRoot = readonly [
+    kind: "Root",
+    child: Gene,
+]
+type BreedTree =
+    | BreedRoot
+    | BreedBranch
 
-const pathFinder = new AStar.Solver()
+const getBreedCost = (parent1: Gene, parent2: Gene, child: Gene) => {
+    let childGeneCount = 0
+    let allGeneCount = 0
+    getChildGenes(parent1, parent2).forEach(([gene, count]) => {
+        allGeneCount += count
+        if (geneEquals(gene, child)) {
+            childGeneCount += count
+        }
+    })
+    if (allGeneCount === 0) { throw new Error("0") }
+
+    // 指定された子が生まれる確率が高いほどコストは下がる
+    return (1 - (childGeneCount / allGeneCount)) +
+
+        // 交配そのもののコスト
+        0.1
+}
 /**
- * スタートとゴールとなる花から可能な交配パスを返す
+ * 目標となる花の遺伝子を生成する最小コストの交配木を返す
  * @param kind 花の種類
- * @param rootGenes スタートになる花の遺伝子 ( 始祖 )
- * @param childGene ゴールになる子の花の遺伝子
+ * @param rootGenes 原種の遺伝子
+ * @param childGene 目標となる花の遺伝子
  * @param options
  */
-export const findPathsToRoots = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindPathToRootsOptions) => {
-    const _filledOptions = fillOptions(optionsSpec, options)
+export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindBreedTreeOptions) => {
+    const filledOptions = fillOptions(findBreedTreeOptionsSpec, options)
 
+    const rootSet: ReadonlySet<GeneKey> = new Set(rootGenes.map(geneKey))
+    const visitedGeneSet = new Set<GeneKey>()
+    type BreedTreeWithCost = [cost: number, tree: BreedTree]
+    const memo = new Map<GeneKey, BreedTreeWithCost | null>()
 
-    for (; ;) {
-        childGene
+    const worker = (child: Gene): BreedTreeWithCost | null => {
+        const childKey = geneKey(child)
+
+        // 始祖の中に子が含まれるなら返す
+        if (rootSet.has(childKey)) {
+            const tree: BreedTreeWithCost = [0, ["Root", child]]
+            memo.set(childKey, tree)
+            return tree
+        }
+        // メモ
+        const result = memo.get(childKey)
+        if (result !== undefined) { return result }
+
+        // 循環参照
+        if (visitedGeneSet.has(childKey)) { return null }
+        visitedGeneSet.add(childKey)
+
+        // 子が生まれる親の組み合わせを列挙
+        const pairs = findBreedParents(kind, child, filledOptions)
+        let minCostTree: BreedTreeWithCost | null = null
+        for (const [parent1, parent2] of pairs) {
+
+            // 親が生まれる交配木を取得
+            const tree1 = worker(parent1)
+            if (tree1 == null) { continue }
+            const tree2 = worker(parent2)
+            if (tree2 == null) { continue }
+
+            // 交配のコストを計算
+            const breedCost = getBreedCost(parent1, parent2, child)
+            const cost = tree1[0] + tree2[0] + breedCost
+
+            // 最もコストの低い交配木を選ぶ
+            if (minCostTree && minCostTree[0] < cost) { continue }
+            minCostTree = [
+                cost,
+                ["Breed", tree1[1], tree2[1], child]
+            ]
+        }
+
+        if (minCostTree == null) {
+            memo.set(childKey, null)
+            return null
+        }
+
+        visitedGeneSet.delete(childKey)
+
+        memo.set(childKey, minCostTree)
+        return minCostTree
     }
+    return worker(childGene)?.[1]
 }
