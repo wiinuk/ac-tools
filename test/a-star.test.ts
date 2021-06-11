@@ -1,3 +1,4 @@
+import { describe, test, expect } from "@jest/globals"
 import * as AStar from "../src/a-star"
 
 namespace Maze {

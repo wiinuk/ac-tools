@@ -22,6 +22,7 @@ export type FlowerKind = keyof rawSpec
 type FlowerColor = FlowerSpec[0]
 type _FlowerTag = FlowerSpec[1]
 type Gene = FlowerSpec[2]
+export type FlowerGene = Gene
 type Allele = Gene extends readonly (infer a)[] ? a : never
 const specs: FlowerSpecs = spec
 
@@ -81,15 +82,16 @@ export const flowerColor = (kind: FlowerKind, gene: Gene) => {
 type GeneKey = number
 
 const undefinedAlleles = [_u] as const
-const childAlleles = (a1: Allele, a2: Allele): readonly Allele[] => {
+/** @internal */
+export const childAlleles = (a1: Allele, a2: Allele): readonly Allele[] => {
     if (a1 === _u || a2 === _u) { return undefinedAlleles }
 
-    const x11 = a1 & 0b10
-    const x12 = a1 & 0b01
-    const x21 = a2 & 0b10
-    const x22 = a2 & 0b01
+    const x11 = (a1 & 0b10) >> 1
+    const x12 = (a1 & 0b01) >> 0
+    const x21 = (a2 & 0b10) >> 1
+    const x22 = (a2 & 0b01) >> 0
     const breed = (x1: number, x2: number) => {
-        const x = x1 | x2
+        const x = (x1 << 1) | x2
         return (x === 0b10 ? 0b01 : x) as unknown as Allele
     }
     return [
@@ -105,7 +107,7 @@ const geneKey = ([a1, a2, a3, a4]: Gene) => (a1 << 6) | (a2 << 4) | (a3 << 2) | 
  * 指定された遺伝子を持つ親を交配したとき生まれる子の、重複のない一覧を返す
  * @internal
  */
-export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (readonly [count: number, childGene: Gene])[] => {
+export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (readonly [childGene: Gene, count: number])[] => {
     const [p11, p12, p13, p14] = parent1Gene
     const [p21, p22, p23, p24] = parent2Gene
     const as1 = childAlleles(p11, p21)
@@ -135,8 +137,8 @@ export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (r
         }
     }
 
-    const result: [number, Gene][] = []
-    genes.forEach(entry => result.push([entry.count, entry.gene]))
+    const result: [Gene, number][] = []
+    genes.forEach(entry => result.push([entry.gene, entry.count]))
     return result
 }
 
@@ -147,7 +149,7 @@ const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gen
     const childGenes = getChildGenes(parent1Gene, parent2Gene)
     let findGene = false
     for (let i = 0; i < childGenes.length; i++) {
-        const [, childGene] = childGenes[i]!
+        const [childGene] = childGenes[i]!
         if (flowerColor(kind, childGene) === color) {
             if (findGene) { return true }
             findGene = true
@@ -193,12 +195,11 @@ const optionsSpec = {
 }
 type FindPathToRootsOptions = OptionsSpecToOptions<typeof optionsSpec>
 type FilledFindPathToRootsOptions = FilledOptions<typeof optionsSpec>
-export const findPathsToRoots = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindPathToRootsOptions) => {
+const _findPathsToRoots = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindPathToRootsOptions) => {
     const _filledOptions = fillOptions(optionsSpec, options)
     const _paths = []
 
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    for (; ;) {
         childGene
     }
 }
