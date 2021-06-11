@@ -1,5 +1,4 @@
 const enum State {
-    None = 0,
     Open = 1,
     Close = 2,
 }
@@ -99,6 +98,18 @@ const compareNode = <V, K>(node1: Node<V, K>, node2: Node<V, K>) => {
     if (s1 === s2) { return node2.cost - node1.cost }
     return s2 - s1
 }
+const popOpenNode = <V, K>(solver: SingleSolver<V, K>) => {
+    const { opens } = solver
+    if (solver.opensIsDirty) {
+        opens.sort(compareNode)
+        solver.opensIsDirty = false
+    }
+    for (; ;) {
+        const node = opens.pop()
+        if (node && node.state !== State.Open) { continue }
+        return node
+    }
+}
 const getPath = <V, K>(goalNode: Node<V, K>) => {
     const path: [V, ...V[]] = [goalNode.vertex]
     for (let node = goalNode.parent; node !== null; node = node.parent) {
@@ -146,19 +157,18 @@ export class Solver {
             const goalKey = getKey(solver, goal)
             const getEdges = solver.getEdges
             const openEndNode = solver.openEndNode
-            const opens = solver.opens
 
             // スタートノードを Open リストに追加
             openIfNone(solver, start, 0, null)
 
-            // eslint-disable-next-line no-constant-condition
-            while (true) {
+            for (; ;) {
+
+                // 実行を譲る
                 const p = doYield(solver)
                 if (p) { await p }
 
-                // 最もスコアの小さいノードを Open リストから削除して取得
-                if (solver.opensIsDirty) { opens.sort(compareNode) }
-                const node = opens.pop()
+                // 最もスコアの小さい Open ノードをリストから抜き出す
+                const node = popOpenNode(solver)
 
                 // Open リストが空なのでゴールにたどり着ける道は無い
                 if (node == null) { return makeFailure() }
