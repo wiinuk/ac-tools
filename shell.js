@@ -1,6 +1,24 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
 const { spawn } = require("child_process")
+const { exit } = require("process")
+
+class ExitError extends Error {
+    exitCode
+    signal
+    output
+    /**
+     * @param {number} exitCode
+     * @param {string} signal
+     * @param {string} output
+     */
+    constructor(exitCode, signal, output) {
+        super("A non-zero exit code was returned.")
+        this.exitCode = exitCode
+        this.signal = signal
+        this.output = output
+    }
+}
 
 /**
  * @param {string} command
@@ -34,12 +52,11 @@ const runCore = (command, { inheritStdio }) => new Promise((onSuccess, onError) 
     child.on("error", onError)
     child.on("exit", (exitCode, signal) => {
         if (exitCode !== 0) {
-            onError(new (class ExitError extends Error {
-                constructor() { super("A non-zero exit code was returned.") }
-                exitCode = exitCode
-                signal = signal
-                output = output.join("")
-            }))
+            onError(new ExitError(
+                exitCode,
+                signal,
+                output.join("")
+            ))
         }
         else {
             onSuccess({
@@ -64,3 +81,14 @@ exports.run = run
  */
 const invoke = async (command, ...args) => (await runCore(String.raw(command, ...args), { inheritStdio: false })).output
 exports.invoke = invoke
+
+/**
+ * @param {() => Promise<void>} asyncProcess
+ */
+const handleMainProcess = asyncProcess => {
+    asyncProcess().catch(error => {
+        console.error(error)
+        exit(error instanceof ExitError ? error.exitCode : -1)
+    })
+}
+exports.handleMainProcess = handleMainProcess
