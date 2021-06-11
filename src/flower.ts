@@ -1,6 +1,7 @@
 
 import spec from "./flower-spec"
 import { fill as fillOptions, FilledOptions, optionSpec, OptionsSpecToOptions } from "./options"
+import * as AStar from "./a-star"
 
 type flowerSpecOfRawSpecs<rawSpecs> =
     rawSpecs extends readonly (infer rawSpec)[]
@@ -195,9 +196,19 @@ const optionsSpec = {
 }
 type FindPathToRootsOptions = OptionsSpecToOptions<typeof optionsSpec>
 type FilledFindPathToRootsOptions = FilledOptions<typeof optionsSpec>
-const _findPathsToRoots = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindPathToRootsOptions) => {
+
+
+const pathFinder = new AStar.Solver()
+/**
+ * スタートとゴールとなる花から可能な交配パスを返す
+ * @param kind 花の種類
+ * @param rootGenes スタートになる花の遺伝子 ( 始祖 )
+ * @param childGene ゴールになる子の花の遺伝子
+ * @param options
+ */
+export const findPathsToRoots = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindPathToRootsOptions) => {
     const _filledOptions = fillOptions(optionsSpec, options)
-    const _paths = []
+
 
     for (; ;) {
         childGene
