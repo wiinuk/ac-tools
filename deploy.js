@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 //@ts-check
-const { run, invoke } = require("./shell")
+const { run, invoke, handleMainProcess } = require("./shell")
 const path = require("path")
 
-const main = async () => {
+handleMainProcess(async () => {
     await run`npm install`
     await run`npm run build`
 
@@ -16,6 +16,4 @@ const main = async () => {
 
     await run`git -c user.name=action@github.com -c user.email="GitHub Action" commit --all --message "${path.relative(process.cwd(), __filename)} による自動コミット"`
     await run`git push`
-}
-
-main().catch(error => console.error(error))
+})
