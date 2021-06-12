@@ -1,10 +1,11 @@
 import { Configuration } from "webpack"
+import path from "path"
 
 const config: Configuration = {
     mode: "development",
     entry: "./src/main.tsx",
     output: {
-        path: `${__dirname}/docs/js`,
+        path: path.join(__dirname, "docs/js"),
         filename: "main.js",
     },
     module: {
@@ -23,7 +24,6 @@ const config: Configuration = {
     resolve: {
         extensions: [".ts", ".tsx", ".js", ".json"],
     },
-    target: ["web", "es5"],
 }
 
 export default config
