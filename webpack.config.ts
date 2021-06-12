@@ -1,4 +1,6 @@
-module.exports = {
+import { Configuration } from "webpack"
+
+const config: Configuration = {
     mode: "development",
     entry: "./src/main.tsx",
     output: {
@@ -23,3 +25,5 @@ module.exports = {
     },
     target: ["web", "es5"],
 }
+
+export default config
