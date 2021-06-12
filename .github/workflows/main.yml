@@ -16,3 +16,6 @@ jobs:
         with:
           node-version: 14.x
       - run: node deploy.js
+        if: ${{ github.event_name == 'push' }}
+      - run: node check.js
+        if: ${{ github.event_name == 'pull_request' }}
