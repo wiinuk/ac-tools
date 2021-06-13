@@ -1,115 +1,10 @@
 import * as React from "react"
-import { FlowerGene, FlowerColor, FlowerAllele, _00, _01, _11, _u, FlowerKind, geneEquals, flowerColor, flowerIsSeed, forEachFlowerGenes, FindBreedTreeOptions, findBreedTree, breedTreeCost, BreedTree, FlowerGeneKey, geneKey, flowerKinds } from "./flower"
+import { BreedTreeView } from "./breed-tree-calculator/breed-tree-view"
+import { andCondition, colorCondition, ColorCondition, Condition, evaluateOrCondition, seedCondition } from "./breed-tree-calculator/condition"
+import { ConditionList } from "./breed-tree-calculator/condition-list"
+import { FlowerGene, _00, _01, _11, _u, FlowerKind, forEachFlowerGenes, FindBreedTreeOptions, findBreedTree, breedTreeCost, flowerKinds } from "./flower"
+import { log } from "./helpers"
 
-type LeafConditionKind<Key extends string, Leaf> = {
-    kind: "Leaf"
-    key: Key
-    value: Leaf
-}
-type GeneCondition = LeafConditionKind<"gene", FlowerGene>
-type ColorCondition = LeafConditionKind<"color", FlowerColor>
-type SeedCondition = LeafConditionKind<"seed", boolean>
-type AndCondition = {
-    kind: "And"
-    color: ColorCondition
-    seed: SeedCondition
-}
-type LeafCondition =
-    | GeneCondition
-    | ColorCondition
-    | SeedCondition
-
-type Condition =
-    | LeafCondition
-    | AndCondition
-
-const log = (template: TemplateStringsArray, ...values: unknown[]) => {
-    let result = template[0]
-    for (let i = 1; i < template.length; i++) {
-        const vi = i - 1
-        result += vi < values.length ? JSON.stringify(values[vi]) : ""
-        result += template[i]!
-    }
-    console.log(result)
-}
-
-const showColor = (color: FlowerColor) =>
-    // TODO: ローカライズ
-    color
-
-const showAllele = (allele: FlowerAllele) => {
-    switch (allele) {
-        case _00: return "00"
-        case _01: return "01"
-        case _11: return "11"
-        case _u: return null
-    }
-}
-const showGene = (gene: FlowerGene) => {
-    const alleles = gene.map(showAllele)
-    while (0 !== alleles.length && alleles[alleles.length - 1] === null) {
-        alleles.pop()
-    }
-    return alleles.map(a => a === null ? "??" : a).join("-")
-}
-const showAnd = ({ color, seed }: AndCondition) => {
-    return `${showColor(color.value)}${showSeed(seed)}`
-}
-const showSeed = ({ value: isSeed }: SeedCondition) => {
-    return isSeed ? "種" : "種以外"
-}
-const showLeaf = (condition: LeafCondition) => {
-    switch (condition.key) {
-        case "color": return showColor(condition.value)
-        case "gene": return showGene(condition.value)
-        case "seed": return showSeed(condition)
-    }
-}
-const showCondition = (condition: Condition): string => {
-    switch (condition.kind) {
-        case "Leaf": return showLeaf(condition)
-        case "And": return showAnd(condition)
-    }
-}
-const ConditionList = (props: Readonly<{
-    list?: readonly Condition[]
-}>) => {
-    const items = (props.list ?? []).map((condition, index) => {
-        const view = showCondition(condition)
-        return <li key={index}>
-            <a>{view}</a>
-        </li>
-    })
-    return <ul>
-        {...items}
-    </ul>
-}
-
-const colorCondition = (value: ColorCondition["value"]): ColorCondition => ({ kind: "Leaf", key: "color", value })
-const seedCondition = (value: SeedCondition["value"]): SeedCondition => ({ kind: "Leaf", key: "seed", value })
-const andCondition = (color: AndCondition["color"], seed: AndCondition["seed"]): AndCondition => ({ kind: "And", color, seed, })
-const seedColorCondition = (color: ColorCondition["value"]) =>
-    andCondition(colorCondition(color), seedCondition(true))
-
-const evaluateLeaf = (kind: FlowerKind, gene: FlowerGene, condition: LeafCondition) => {
-    switch (condition.key) {
-        case "gene": return geneEquals(gene, condition.value)
-        case "color": return flowerColor(kind, gene) === condition.value
-        case "seed": return flowerIsSeed(kind, gene)
-    }
-}
-const evaluateCondition = (kind: FlowerKind, gene: FlowerGene, condition: Condition): boolean => {
-    switch (condition.kind) {
-        case "Leaf": return evaluateLeaf(kind, gene, condition)
-        case "And": return evaluateLeaf(kind, gene, condition.color) && evaluateLeaf(kind, gene, condition.seed)
-    }
-}
-const evaluateOrCondition = (kind: FlowerKind, gene: FlowerGene, conditions: readonly Condition[]) => {
-    for (const c of conditions) {
-        if (evaluateCondition(kind, gene, c)) { return true }
-    }
-    return false
-}
 const getFlowersIn = (kind: FlowerKind, orConditions: readonly Condition[]) => {
     const result: FlowerGene[] = []
     forEachFlowerGenes(kind, gene => {
@@ -136,76 +31,6 @@ const findBreedTreesOfConditions = (kind: FlowerKind, starts: readonly Condition
     return trees
 }
 
-const flowerColorToCssColor = (color: FlowerColor): NonNullable<React.CSSProperties["color"]> => {
-    switch (color) {
-        case "オレンジ": return "orange"
-        case "ピンク": return "pink"
-        case "白": return "white"
-        case "紫": return "purple"
-        case "緑": return "green"
-        case "赤": return "red"
-        case "青": return "blue"
-        case "黄": return "yellow"
-        case "黒": return "black"
-    }
-}
-const FlowerInfo = ({ kind, gene }: Readonly<{ kind: FlowerKind, gene: FlowerGene }>) => {
-    const color = flowerColor(kind, gene)
-    return <span style={{ color: flowerColorToCssColor(color) }}>
-        <span>{showColor(color)}</span>
-        <span>{showGene(gene)}</span>
-    </span>
-}
-
-type Breed = {
-    parent1: FlowerGene
-    parent2: FlowerGene
-    child: FlowerGene
-}
-const BreedDetailView = ({ kind, breed: { parent1, parent2, child } }: Readonly<{ kind: FlowerKind, breed: Breed }>) => {
-    return <div className="breed-detail">
-        <div>
-            <FlowerInfo kind={kind} gene={parent1} />×<FlowerInfo kind={kind} gene={parent2} />
-        </div>
-        <div>
-            →<FlowerInfo kind={kind} gene={child} />
-        </div>
-    </div>
-}
-
-const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGeneKey>): Breed[] => {
-    switch (tree[0]) {
-        case "Root": return []
-        case "Breed": {
-            const [, child, tree1, tree2] = tree
-            const key = geneKey(child)
-            const breed =
-                geneSet.has(key)
-                    ? []
-                    : (geneSet.add(key), [{
-                        parent1: tree1[1],
-                        parent2: tree2[1],
-                        child,
-                    }])
-
-            return [
-                ...breedTreeToBreeds(tree1, geneSet),
-                ...breedTreeToBreeds(tree2, geneSet),
-                ...breed,
-            ]
-        }
-    }
-}
-const BreedTreeView = ({ kind, tree }: Readonly<{ kind: FlowerKind, tree: BreedTree }>) => {
-    const breeds = breedTreeToBreeds(tree, new Set())
-    log`tree: ${JSON.stringify(tree)}`
-    log`breeds: ${JSON.stringify(breeds)}`
-    const breedViews = breeds.map((breed, index) => <BreedDetailView key={index} kind={kind} breed={breed} />)
-    return <div className="breed-tree">
-        {...breedViews}
-    </div>
-}
-
 type CalculationResultProps = {
     kind: FlowerKind
     starts: readonly Condition[]
@@ -230,6 +55,9 @@ class CalculationResult extends React.Component<CalculationResultProps> {
 const showFlowerKind = (kind: FlowerKind) =>
     // TODO: ローカライズ
     kind
+
+const seedColorCondition = (color: ColorCondition["value"]) =>
+    andCondition(colorCondition(color), seedCondition(true))
 
 export const BreedTreeCalculator = (props: Readonly<{
     kind?: FlowerKind
