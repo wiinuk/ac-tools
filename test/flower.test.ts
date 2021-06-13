@@ -107,9 +107,9 @@ describe("flower.findBreedTree", () => {
             distinguishedOnlyByColor: false
         })).toStrictEqual(
             ["Breed",
+                [_00, _00, _00, _11],
                 ["Root", [0, 0, 0, 1]],
                 ["Root", [0, 0, 0, 1]],
-                [_00, _00, _00, _11]
             ]
         )
     })
@@ -124,17 +124,17 @@ describe("flower.findBreedTree", () => {
             [_00, _11, _11, _u] // 緑
         )).toStrictEqual(
             ["Breed",
+                [_00, _11, _11, _u],
                 ["Breed",
+                    [_00, _01, _01, _u],
                     ["Root", [_00, _11, _00, _u]],
                     ["Root", [_00, _00, _11, _u]],
-                    [_00, _01, _01, _u]
                 ],
                 ["Breed",
+                    [_00, _01, _01, _u],
                     ["Root", [_00, _11, _00, _u]],
                     ["Root", [_00, _00, _11, _u]],
-                    [_00, _01, _01, _u]
                 ],
-                [_00, _11, _11, _u]
             ]
         )
     })

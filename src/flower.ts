@@ -17,16 +17,35 @@ type FlowerSpec =
     )
     : never
 
-type FlowerSpecs = { readonly [k in FlowerKind]: readonly FlowerSpec[] }
+type FlowerSpecs = { readonly [k in FlowerKind]: ReadonlyMap<GeneKey, FlowerSpec> }
 export type FlowerKind = "バラ" | "コスモス" | "チューリップ" | "パンジー" | "ユリ" | "アネモネ" | "ヒヤシンス" | "キク"
-type FlowerColor = FlowerSpec[0]
+export type FlowerColor = FlowerSpec[0]
 type _FlowerTag = FlowerSpec[1]
 type Gene = readonly [Allele, Allele, Allele, Allele]
 export type FlowerGene = Gene
 type Allele11 = 0 | 1 | 3
 type UndefinedAllele = 2
 type Allele = Allele11 | UndefinedAllele
-const specs: FlowerSpecs = spec
+export type FlowerAllele = Allele
+
+type GeneKey = number
+export type FlowerGeneKey = GeneKey
+export const geneKey = ([a1, a2, a3, a4]: Gene): GeneKey => (a1 << 6) | (a2 << 4) | (a3 << 2) | (a4 << 0)
+
+const specs = ((): FlowerSpecs => {
+    const result: { [k in FlowerKind]: ReadonlyMap<GeneKey, FlowerSpec> } = Object.create(null)
+    for (const kind in spec) {
+        const key = kind as keyof (typeof spec)
+        const geneToSpec = new Map<GeneKey, FlowerSpec>()
+        const specs = spec[key]
+        for (const spec of specs) {
+            geneToSpec.set(geneKey(spec[2]), spec)
+        }
+        result[key] = geneToSpec
+    }
+    return result
+})()
+export const flowerKinds = Object.freeze(Object.keys(specs) as FlowerKind[])
 
 export const _u = 0b10
 export const _00 = 0b00
@@ -65,7 +84,7 @@ const allelePairs = (a: Allele): readonly (readonly [Allele, Allele])[] => {
 }
 
 const error = (message: string) => { throw new Error(message) }
-const geneEquals = (g1: Gene, g2: Gene) => {
+export const geneEquals = (g1: Gene, g2: Gene) => {
     if (g1.length !== g2.length) { return false }
     for (let index = 0; index < g1.length; index++) {
         if (g1[index] !== g2[index]) { return false }
@@ -73,15 +92,17 @@ const geneEquals = (g1: Gene, g2: Gene) => {
     return true
 }
 
-/** @internal */
-export const flowerColor = (kind: FlowerKind, gene: Gene) => {
-    const [color] = specs[kind]
-        .find(([, , g]) => geneEquals(g, gene))
-        ?? error(`内部エラー: 花の仕様が見つかりませんでした。kind: ${kind}, gene: ${JSON.stringify(gene)}`)
+const geneSpec = (kind: FlowerKind, gene: Gene) =>
+    specs[kind].get(geneKey(gene))
+    ?? error(`内部エラー: 花の仕様が見つかりませんでした。kind: ${kind}, gene: ${JSON.stringify(gene)}`)
 
-    return color
-}
-type GeneKey = number
+/** @internal */
+export const flowerColor = (kind: FlowerKind, gene: Gene) => geneSpec(kind, gene)[0]
+
+/** @internal */
+export const flowerIsSeed = (kind: FlowerKind, gene: Gene) => geneSpec(kind, gene)[1] === "種"
+export const forEachFlowerGenes = (kind: FlowerKind, action: (gene: Gene) => void): void =>
+    spec[kind].forEach(x => action(x[2]))
 
 const undefinedAlleles = [_u] as const
 /** @internal */
@@ -103,8 +124,6 @@ export const childAlleles = (a1: Allele, a2: Allele): readonly Allele[] => {
         breed(x12, x22),
     ]
 }
-const geneKey = ([a1, a2, a3, a4]: Gene) => (a1 << 6) | (a2 << 4) | (a3 << 2) | (a4 << 0)
-
 /**
  * 指定された遺伝子を持つ親を交配したとき生まれる子の、重複のない一覧を返す
  * @internal
@@ -196,20 +215,20 @@ const findBreedTreeOptionsSpec = {
     /** 交配するとき、子が色で見分けられないなら除外する */
     distinguishedOnlyByColor: optionSpec("boolean", true)
 }
-type FindBreedTreeOptions = OptionsSpecToOptions<typeof findBreedTreeOptionsSpec>
+export type FindBreedTreeOptions = OptionsSpecToOptions<typeof findBreedTreeOptionsSpec>
 type FilledFindBreedTreeOptions = FilledOptions<typeof findBreedTreeOptionsSpec>
 
 type BreedBranch = readonly [
     kind: "Breed",
+    child: Gene,
     parent1: BreedTree,
     parent2: BreedTree,
-    child: Gene,
 ]
 type BreedRoot = readonly [
     kind: "Root",
     child: Gene,
 ]
-type BreedTree =
+export type BreedTree =
     | BreedRoot
     | BreedBranch
 
@@ -229,6 +248,12 @@ const getBreedCost = (parent1: Gene, parent2: Gene, child: Gene) => {
 
         // 交配そのもののコスト
         0.1
+}
+export const breedTreeCost = (tree: BreedTree): number => {
+    switch (tree[0]) {
+        case "Root": return 0
+        case "Breed": return getBreedCost(tree[2][1], tree[3][1], tree[1])
+    }
 }
 /**
  * 目標となる花の遺伝子を生成する最小コストの交配木を返す
@@ -281,7 +306,7 @@ export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], chil
             if (minCostTree && minCostTree[0] < cost) { continue }
             minCostTree = [
                 cost,
-                ["Breed", tree1[1], tree2[1], child]
+                ["Breed", child, tree1[1], tree2[1]]
             ]
         }
 
