@@ -7,3 +7,12 @@ body {
     align-items: center;
     text-align: center;
 }
+ul, ol {
+    list-style: none;
+    padding-inline: 0;
+}
+.breed-tree, .breed-detail {
+    border: solid 1px gray;
+    margin: 0.5em;
+    padding: 0.5em;
+}
