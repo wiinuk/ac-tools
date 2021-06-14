@@ -361,7 +361,7 @@ const getBreedCost = (parent1: Gene, parent2: Gene, child: Gene) => {
         // 交配そのもののコスト
         0.1
 }
-export const breedTreeCost = (tree: BreedTree): number => {
+export const getBreedTreeCost = (tree: BreedTree): number => {
     switch (tree[0]) {
         case "Root": return 0
         case "Breed": return getBreedCost(tree[2][1], tree[3][1], tree[1])
