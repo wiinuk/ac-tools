@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@jest/globals"
-import { childAlleles, findBreedParents, findBreedTree, FlowerAllele, flowerColor, FlowerGene, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
+import { BreedTree, breedTreeToBreeds, childAlleles, findBreedParents, findBreedTree, findBreedTreesOfGoals, FlowerAllele, flowerColor, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
 import * as q from "qcheck"
 
 const kind = q.elements(...flowerKinds.concat().reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
@@ -155,5 +155,75 @@ describe("flower.findBreedTree", () => {
                 ],
             ]
         )
+    })
+})
+describe("flower.findBreedTreesOfGoals", () => {
+    const Root = <G>(gene: G) => ["Root", gene] as const
+    const Breed = <G>(child: G, parent1: BreedTree<G>, parent2: BreedTree<G>) => ["Breed", child, parent1, parent2] as const
+    const mapBreedTree = <G1, G2>(tree: BreedTree<G1>, mapping: (gene: G1) => G2): BreedTree<G2> => {
+        switch (tree[0]) {
+            case "Root": return ["Root", mapping(tree[1])]
+            case "Breed": return ["Breed", mapping(tree[1]), mapBreedTree(tree[2], mapping), mapBreedTree(tree[3], mapping)]
+        }
+    }
+    const showBreedTreeGenes = (tree: BreedTree) => mapBreedTree(tree, showGene)
+
+    test("ヒヤシンス-{01-00-11, 01-00-00} から ヒヤシンス-01-00-01", () => {
+        const trees = findBreedTreesOfGoals(
+            "ヒヤシンス",
+            [
+                geneFromAlleles(_01, _00, _11, _u), // 赤種
+                geneFromAlleles(_01, _00, _00, _u), // 白種
+            ],
+            [
+                geneFromAlleles(_01, _00, _01, _u), // 桃
+            ]
+        )
+
+        expect(showBreedTreeGenes(trees[0] as BreedTree)).toStrictEqual(
+            Breed(
+                "01-00-01",
+                Breed(
+                    "00-00-00",
+                    Breed(
+                        "00-00-01",
+                        Root("01-00-11"),
+                        Root("01-00-00"),
+                    ),
+                    Breed(
+                        "00-00-01",
+                        Root("01-00-11"),
+                        Root("01-00-00"),
+                    ),
+                ),
+                Root("01-00-11"),
+            )
+        )
+        expect(
+            breedTreeToBreeds(trees[0] as BreedTree, new Set()).map(breed => {
+                return {
+                    ...breed,
+                    parent1: showGene(breed.parent1),
+                    parent2: showGene(breed.parent2),
+                    children: breed.children.map(showGene),
+                }
+            })
+        ).toStrictEqual([
+            {
+                children: ["00-00-01"],
+                parent1: "01-00-11",
+                parent2: "01-00-00",
+            },
+            {
+                children: ["00-00-00"],
+                parent1: "00-00-01",
+                parent2: "00-00-01",
+            },
+            {
+                children: ["01-00-01"],
+                parent1: "00-00-00",
+                parent2: "01-00-11",
+            }
+        ])
     })
 })
