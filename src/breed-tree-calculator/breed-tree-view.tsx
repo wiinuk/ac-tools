@@ -1,5 +1,5 @@
 import React from "react"
-import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, getChildRate, flowerIsSeed, BreedMulti, showGene, Breed, breedTreeToBreeds } from "../flower"
+import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, getChildRate, flowerIsSeed, BreedMulti, showGene, Breed, breedTreeToBreeds, getBreedTopRate } from "../flower"
 import { showColor } from "../flower-view"
 import { log } from "../helpers"
 
@@ -29,7 +29,7 @@ const FlowerInfo = ({ kind, gene }: Readonly<{ kind: FlowerKind, gene: FlowerGen
 const BreedDetailView = ({ kind, breed: { parent1, parent2, children } }: Readonly<{ kind: FlowerKind, breed: Breed }>) => {
     const childViews = children.map(child =>
         <div>
-            →<FlowerInfo kind={kind} gene={child} /> <span>{`${getChildRate(parent1, parent2, child) * 100}%`}</span>
+            →<FlowerInfo kind={kind} gene={child} /> <span>{`${getChildRate(parent1, parent2, g => child === g) * 100}%`}</span>
         </div>
     )
     return <div className="breed-detail">
@@ -63,6 +63,7 @@ export const BreedTreeView = ({ kind, tree }: Readonly<{
     log`breeds: ${JSON.stringify(breeds)}`
     const breedViews = breeds.map((breed, index) => <BreedDetailView key={index} kind={kind} breed={breed} />)
     return <div className="breed-tree">
+        <div>交配率 {getBreedTopRate(tree) * 100}%</div>
         {...breedViews}
     </div>
 }

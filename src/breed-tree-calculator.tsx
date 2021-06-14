@@ -2,7 +2,7 @@ import * as React from "react"
 import { BreedTreeView } from "./breed-tree-calculator/breed-tree-view"
 import { andCondition, colorCondition, ColorCondition, Condition, evaluateOrCondition, seedCondition } from "./breed-tree-calculator/condition"
 import { ConditionList } from "./breed-tree-calculator/condition-list"
-import { FlowerGene, _00, _01, _11, _u, FlowerKind, forEachFlowerGenes, FindBreedTreeOptions, flowerKinds, findBreedTreesOfGoals } from "./flower"
+import { FlowerGene, _00, _01, _11, _u, FlowerKind, forEachFlowerGenes, FindBreedTreeOptions, flowerKinds, findBreedTreesOfGoals, getBreedTopRate } from "./flower"
 
 const getFlowersIn = (kind: FlowerKind, orConditions: readonly Condition[]) => {
     const result: FlowerGene[] = []
@@ -32,8 +32,12 @@ class CalculationResult extends React.Component<CalculationResultProps> {
     }
     override render() {
         const { kind, starts, goals } = this.props
-        const trees = findBreedTreesOfConditions(kind, starts, goals, { distinguishedOnlyByColor: false })
-        const treeViews = trees.map((tree, index) => <BreedTreeView key={index} kind={kind} tree={tree} />)
+        const trees = findBreedTreesOfConditions(kind, starts, goals, { distinguishedOnlyByColor: true })
+        const treeViews = trees
+            .map(t => [getBreedTopRate(t), t] as const)
+            .sort(([a], [b]) => b - a)
+            .map((tree, index) => <BreedTreeView key={index} kind={kind} tree={tree[1]} />)
+
         return <section>
             <h3>結果</h3>
             {...treeViews}

@@ -6,6 +6,16 @@ const kind = q.elements(...flowerKinds.concat().reverse() as readonly string[] a
 const allele: q.Checker<FlowerAllele> = q.elements(_00, _01, _11).withPrinter(x => showAllele(x) ?? "??")
 const gene4 = q.tuple(allele, allele, allele, allele).map(as => geneFromAlleles(...as), x => [...geneToAlleles(x)]).withPrinter(showGene)
 
+const Root = <G>(gene: G) => ["Root", gene] as const
+const Breed = <G>(child: G, parent1: BreedTree<G>, parent2: BreedTree<G>) => ["Breed", child, parent1, parent2] as const
+const mapBreedTree = <G1, G2>(tree: BreedTree<G1>, mapping: (gene: G1) => G2): BreedTree<G2> => {
+    switch (tree[0]) {
+        case "Root": return ["Root", mapping(tree[1])]
+        case "Breed": return ["Breed", mapping(tree[1]), mapBreedTree(tree[2], mapping), mapBreedTree(tree[3], mapping)]
+    }
+}
+const showBreedTreeGenes = (tree: BreedTree) => mapBreedTree(tree, showGene)
+
 describe("flower.*", () => {
     test("childAlleles の戻り値型は Allele", () => {
         q.tuple(allele, allele).check(([a1, a2]) => {
@@ -130,44 +140,33 @@ describe("flower.findBreedTree", () => {
         )
     })
     test("キク-{01-00-00,00-11-00,00-00-11} から キク-00-11-11 への交配木", () => {
-        expect(
-            findBreedTree(
-                "キク",
-                [
-                    geneFromAlleles(_01, _00, _00, _u), // 白種
-                    geneFromAlleles(_00, _11, _00, _u), // 黄種
-                    geneFromAlleles(_00, _00, _11, _u), // 赤種
-                ],
-                geneFromAlleles(_00, _11, _11, _u) // 緑
-            )
-        ).toStrictEqual(
+        const tree = findBreedTree(
+            "キク",
+            [
+                geneFromAlleles(_01, _00, _00, _u), // 白種
+                geneFromAlleles(_00, _11, _00, _u), // 黄種
+                geneFromAlleles(_00, _00, _11, _u), // 赤種
+            ],
+            geneFromAlleles(_00, _11, _11, _u) // 緑
+        )
+        expect(tree ? showBreedTreeGenes(tree) : undefined).toStrictEqual(
             ["Breed",
-                geneFromAlleles(_00, _11, _11, _u),
+                "00-11-11",
                 ["Breed",
-                    geneFromAlleles(_00, _01, _01, _u),
-                    ["Root", geneFromAlleles(_00, _11, _00, _u)],
-                    ["Root", geneFromAlleles(_00, _00, _11, _u)],
+                    "00-01-01",
+                    ["Root", "00-11-00"],
+                    ["Root", "00-00-11"],
                 ],
                 ["Breed",
-                    geneFromAlleles(_00, _01, _01, _u),
-                    ["Root", geneFromAlleles(_00, _11, _00, _u)],
-                    ["Root", geneFromAlleles(_00, _00, _11, _u)],
+                    "00-01-01",
+                    ["Root", "00-11-00"],
+                    ["Root", "00-00-11"],
                 ],
             ]
         )
     })
 })
 describe("flower.findBreedTreesOfGoals", () => {
-    const Root = <G>(gene: G) => ["Root", gene] as const
-    const Breed = <G>(child: G, parent1: BreedTree<G>, parent2: BreedTree<G>) => ["Breed", child, parent1, parent2] as const
-    const mapBreedTree = <G1, G2>(tree: BreedTree<G1>, mapping: (gene: G1) => G2): BreedTree<G2> => {
-        switch (tree[0]) {
-            case "Root": return ["Root", mapping(tree[1])]
-            case "Breed": return ["Breed", mapping(tree[1]), mapBreedTree(tree[2], mapping), mapBreedTree(tree[3], mapping)]
-        }
-    }
-    const showBreedTreeGenes = (tree: BreedTree) => mapBreedTree(tree, showGene)
-
     test("ヒヤシンス-{01-00-11, 01-00-00} から ヒヤシンス-01-00-01", () => {
         const trees = findBreedTreesOfGoals(
             "ヒヤシンス",

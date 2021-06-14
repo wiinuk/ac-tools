@@ -2,7 +2,13 @@
 import getSpec from "./flower-spec"
 import { fill as fillOptions, FilledOptions, optionSpec, OptionsSpecToOptions } from "./options"
 
-const error = (message: string) => { throw new Error(message) }
+function error(message: TemplateStringsArray, ...args: unknown[]): never
+function error(message: string): never
+function error(message: string | TemplateStringsArray, ...args: unknown[]) {
+    throw new Error(typeof message === "string" ? message : String.raw(message, ...args))
+}
+const exhaustiveCheck = (_: never) => error`exhaustiveCheck`
+
 type flowerSpecOfRawSpecs<rawSpecs> =
     rawSpecs extends readonly (infer rawSpec)[]
     ? rawSpec
@@ -340,23 +346,26 @@ export type BreedTree<gene = FlowerGene> =
     | BreedRoot<gene>
     | BreedBranch<gene>
 
-export const getChildRate = (parent1: Gene, parent2: Gene, child: Gene) => {
+export function getChildRate(parent1: Gene, parent2: Gene, predicate: (gene: Gene) => boolean): number
+export function getChildRate<State>(parent1: Gene, parent2: Gene, predicate: (gene: Gene, state: State) => boolean, state: State): number
+export function getChildRate(parent1: Gene, parent2: Gene, predicate: (gene: Gene, state: unknown) => boolean, state?: unknown) {
     let childGeneCount = 0
     let allGeneCount = 0
     forEachChildGenes(parent1, parent2, someChild => {
         allGeneCount++
-        if (someChild === child) {
+        if (predicate(someChild, state)) {
             childGeneCount++
         }
     })
     if (allGeneCount === 0) { return error("0") }
     return childGeneCount / allGeneCount
 }
+const geneEq = (g: Gene, child: Gene) => g === child
+const getBreedRate = (parent1: Gene, parent2: Gene, child: Gene) => getChildRate(parent1, parent2, geneEq, child)
 const getBreedCost = (parent1: Gene, parent2: Gene, child: Gene) => {
-    const rate = getChildRate(parent1, parent2, child)
 
     // 指定された子が生まれる確率が高いほどコストは下がる
-    return (1 - rate) +
+    return (1 - getBreedRate(parent1, parent2, child)) +
 
         // 交配そのもののコスト
         0.1
@@ -364,7 +373,36 @@ const getBreedCost = (parent1: Gene, parent2: Gene, child: Gene) => {
 export const getBreedTreeCost = (tree: BreedTree): number => {
     switch (tree[0]) {
         case "Root": return 0
-        case "Breed": return getBreedCost(tree[2][1], tree[3][1], tree[1])
+        case "Breed": return getBreedTreeCost(tree[2]) +
+            getBreedTreeCost(tree[3]) +
+            getBreedCost(tree[2][1], tree[3][1], tree[1])
+
+        default: return exhaustiveCheck(tree[0])
+    }
+}
+const breedMultiChildRate = (tree: BreedMulti) => getChildRate(tree[2][1], tree[3][1], gene => tree[1].includes(gene))
+export const getBreedTopCost = (tree: BreedTree | BreedMulti): number => {
+    switch (tree[0]) {
+        case "BreedMulti": {
+            const breedCost = (1 - breedMultiChildRate(tree)) + 0.1
+            return getBreedTreeCost(tree[2]) +
+                getBreedTreeCost(tree[3]) +
+                breedCost
+        }
+        default: return getBreedTreeCost(tree)
+    }
+}
+const getBreedTreeRate = (tree: BreedTree): number => {
+    switch (tree[0]) {
+        case "Root": return 1
+        case "Breed": return getBreedTreeRate(tree[2]) * getBreedTreeRate(tree[3]) * getBreedRate(tree[2][1], tree[3][1], tree[1])
+        default: return exhaustiveCheck(tree[0])
+    }
+}
+export const getBreedTopRate = (tree: BreedTree | BreedMulti): number => {
+    switch (tree[0]) {
+        case "BreedMulti": return getBreedTreeRate(tree[2]) * getBreedTreeRate(tree[3]) * breedMultiChildRate(tree)
+        default: return getBreedTreeRate(tree)
     }
 }
 /**
