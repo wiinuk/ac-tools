@@ -55,7 +55,7 @@ export const BreedTreeCalculator = (props: Readonly<{
 }>) => {
     const [state, setState] = React.useState({
         kind: props?.kind ?? "コスモス",
-        starts: props?.starts ?? [seedColorCondition("赤"), seedColorCondition("白")],
+        starts: props?.starts ?? [seedColorCondition("赤"), seedColorCondition("白"), seedColorCondition("黄")],
         goals: props?.goals ?? [colorCondition("ピンク")]
     })
     const onSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
