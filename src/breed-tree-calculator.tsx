@@ -2,8 +2,7 @@ import * as React from "react"
 import { BreedTreeView } from "./breed-tree-calculator/breed-tree-view"
 import { andCondition, colorCondition, ColorCondition, Condition, evaluateOrCondition, seedCondition } from "./breed-tree-calculator/condition"
 import { ConditionList } from "./breed-tree-calculator/condition-list"
-import { FlowerGene, _00, _01, _11, _u, FlowerKind, forEachFlowerGenes, FindBreedTreeOptions, findBreedTree, breedTreeCost, flowerKinds } from "./flower"
-import { log } from "./helpers"
+import { FlowerGene, _00, _01, _11, _u, FlowerKind, forEachFlowerGenes, FindBreedTreeOptions, flowerKinds, findBreedTreesOfGoals } from "./flower"
 
 const getFlowersIn = (kind: FlowerKind, orConditions: readonly Condition[]) => {
     const result: FlowerGene[] = []
@@ -14,21 +13,11 @@ const getFlowersIn = (kind: FlowerKind, orConditions: readonly Condition[]) => {
     })
     return result
 }
-/** 戻り値はコストが小さい順に並んでいる */
+
 const findBreedTreesOfConditions = (kind: FlowerKind, starts: readonly Condition[], goals: readonly Condition[], options?: FindBreedTreeOptions) => {
     const startGenes = getFlowersIn(kind, starts)
     const goalGenes = getFlowersIn(kind, goals)
-    const trees = goalGenes
-        .map(goalGene => {
-            const tree = findBreedTree(kind, startGenes, goalGene, options)
-            log`startGenes: ${startGenes}, goalGene: ${goalGene}, tree: ${tree}`
-            return tree
-        })
-        .filter(x => x !== undefined)
-        .map(x => x as NonNullable<typeof x>)
-        .sort(breedTreeCost)
-
-    return trees
+    return findBreedTreesOfGoals(kind, startGenes, goalGenes, options)
 }
 
 type CalculationResultProps = {

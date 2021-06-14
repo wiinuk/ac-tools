@@ -1,9 +1,8 @@
 import { describe, test, expect } from "@jest/globals"
-import { childAlleles, findBreedParents, findBreedTree, flowerColor, FlowerKind, getChildGenes, _00, _01, _11, _u } from "../src/flower"
+import { childAlleles, findBreedParents, findBreedTree, flowerColor, FlowerKind, flowerKinds, getChildGenes, _00, _01, _11, _u } from "../src/flower"
 import * as q from "qcheck"
-import flowerSpec from "../src/flower-spec"
 
-const kind = q.elements(...Object.keys(flowerSpec).reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
+const kind = q.elements(...flowerKinds.concat().reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
 const allele = q.elements(_00, _01, _11)
 const gene4 = q.tuple(allele, allele, allele, allele)
 

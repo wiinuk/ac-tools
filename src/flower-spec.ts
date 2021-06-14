@@ -1,4 +1,4 @@
-export default {
+export default () => ({
     バラ: [
         ["白", null, [0, 0, 0, 0]],
         ["白", null, [0, 0, 0, 1]],
@@ -285,4 +285,4 @@ export default {
         ["緑", null, [0, 3, 3, 2]],
         ["緑", null, [1, 3, 3, 2]],
     ],
-} as const
+} as const)
