@@ -1,5 +1,5 @@
 import React from "react"
-import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, getChildRate, flowerIsSeed, BreedMulti, showGene } from "../flower"
+import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, getChildRate, flowerIsSeed, BreedMulti, showGene, Breed, breedTreeToBreeds } from "../flower"
 import { showColor } from "../flower-view"
 import { log } from "../helpers"
 
@@ -26,11 +26,6 @@ const FlowerInfo = ({ kind, gene }: Readonly<{ kind: FlowerKind, gene: FlowerGen
     </span>
 }
 
-type Breed = {
-    parent1: FlowerGene
-    parent2: FlowerGene
-    children: readonly [FlowerGene, ...FlowerGene[]]
-}
 const BreedDetailView = ({ kind, breed: { parent1, parent2, children } }: Readonly<{ kind: FlowerKind, breed: Breed }>) => {
     const childViews = children.map(child =>
         <div>
@@ -43,29 +38,6 @@ const BreedDetailView = ({ kind, breed: { parent1, parent2, children } }: Readon
         </div>
         {...childViews}
     </div>
-}
-
-const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGene>): Breed[] => {
-    switch (tree[0]) {
-        case "Root": return []
-        case "Breed": {
-            const [, child, tree1, tree2] = tree
-            const breed =
-                geneSet.has(child)
-                    ? []
-                    : (geneSet.add(child), [{
-                        parent1: tree1[1],
-                        parent2: tree2[1],
-                        children: [child],
-                    }] as const)
-
-            return [
-                ...breedTreeToBreeds(tree1, geneSet),
-                ...breedTreeToBreeds(tree2, geneSet),
-                ...breed,
-            ]
-        }
-    }
 }
 
 const breedTopToBreeds = (tree: BreedMulti | BreedTree, set: Set<FlowerGene>) => {

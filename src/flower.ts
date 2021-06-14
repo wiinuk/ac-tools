@@ -320,25 +320,25 @@ export const findBreedTreeOptionsSpec = {
 export type FindBreedTreeOptions = OptionsSpecToOptions<typeof findBreedTreeOptionsSpec>
 export type FilledFindBreedTreeOptions = FilledOptions<typeof findBreedTreeOptionsSpec>
 
-type BreedBranch = readonly [
+type BreedBranch<gene> = readonly [
     kind: "Breed",
-    child: Gene,
-    parent1: BreedTree,
-    parent2: BreedTree,
+    child: gene,
+    parent1: BreedTree<gene>,
+    parent2: BreedTree<gene>,
 ]
-type BreedRoot = readonly [
+type BreedRoot<gene> = readonly [
     kind: "Root",
-    child: Gene,
+    child: gene,
 ]
-export type BreedMulti = readonly [
+export type BreedMulti<gene = FlowerGene> = readonly [
     kind: "BreedMulti",
-    children: readonly [FlowerGene, FlowerGene, ...FlowerGene[]],
-    parent1: BreedTree,
-    parent2: BreedTree,
+    children: readonly [gene, gene, ...gene[]],
+    parent1: BreedTree<gene>,
+    parent2: BreedTree<gene>,
 ]
-export type BreedTree =
-    | BreedRoot
-    | BreedBranch
+export type BreedTree<gene = FlowerGene> =
+    | BreedRoot<gene>
+    | BreedBranch<gene>
 
 export const getChildRate = (parent1: Gene, parent2: Gene, child: Gene) => {
     let childGeneCount = 0
@@ -460,6 +460,10 @@ export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerG
 
     // 交配ペアの親を生成する交配木を求める
     const trees = pairs.reduce((result: (BreedMulti | BreedTree)[], { parent1, parent2 }) => {
+
+        // 親がゴールに含まれるなら除外
+        if (goalSet.has(parent1) || goalSet.has(parent2)) { return result }
+
         const tree1 = findBreedTree(kind, starts, parent1)
         if (!tree1) { return result }
 
@@ -485,4 +489,30 @@ export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerG
         return result
     }, [])
     return trees
+}
+
+export type Breed = Readonly<{
+    parent1: FlowerGene
+    parent2: FlowerGene
+    children: readonly [FlowerGene, ...FlowerGene[]]
+}>
+
+export const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGene>): Breed[] => {
+    switch (tree[0]) {
+        case "Root": return []
+        case "Breed": {
+            const [, child, tree1, tree2] = tree
+            return [
+                ...breedTreeToBreeds(tree1, geneSet),
+                ...breedTreeToBreeds(tree2, geneSet),
+                ...geneSet.has(child)
+                    ? []
+                    : (geneSet.add(child), [{
+                        parent1: tree1[1],
+                        parent2: tree2[1],
+                        children: [child],
+                    }] as const),
+            ]
+        }
+    }
 }
