@@ -1,5 +1,6 @@
 import React from "react"
-import { showColor, showGene } from "../flower-view"
+import { showGene } from "../flower"
+import { showColor } from "../flower-view"
 import { AndCondition, Condition, LeafCondition } from "./condition"
 
 const showAnd = ({ color, seed }: AndCondition) => {

@@ -10,38 +10,47 @@ type flowerSpecOfRawSpecs<rawSpecs> =
 
 type rawSpec = ReturnType<typeof getSpec>
 type FlowerSpec =
-    { [k in keyof rawSpec]: flowerSpecOfRawSpecs<rawSpec[k]> }[FlowerKind] extends readonly [infer color, infer tag, readonly [infer a1, infer a2, infer a3, infer a4]]
-    ? (
-        a1 | a2 | a3 | a4 extends infer a
-        ? readonly [color, tag, readonly [a, a, a, a]]
-        : never
-    )
+    { [k in keyof rawSpec]: flowerSpecOfRawSpecs<rawSpec[k]> }[FlowerKind] extends readonly [infer color, infer tag, unknown]
+    ? readonly [color, tag, Gene]
     : never
 
-type FlowerSpecs = { readonly [k in FlowerKind]: ReadonlyMap<GeneKey, FlowerSpec> }
+type FlowerSpecs = { readonly [k in FlowerKind]: ReadonlyMap<Gene, FlowerSpec> }
 export type FlowerKind = "バラ" | "コスモス" | "チューリップ" | "パンジー" | "ユリ" | "アネモネ" | "ヒヤシンス" | "キク"
 export type FlowerColor = FlowerSpec[0]
 type _FlowerTag = FlowerSpec[1]
-type Gene = readonly [Allele, Allele, Allele, Allele]
+
+const genePrivateSymbol = Symbol("_geneBrand")
+
+/** `typeof Gene === "number"` */
+class Gene {
+    private readonly _geneBrand: typeof genePrivateSymbol = genePrivateSymbol
+    private constructor() { /* インスタンスを作らせないため */ }
+}
+export const geneFromAlleles = (a1: Allele, a2: Allele, a3: Allele, a4: Allele) =>
+    ((a1 << 6) | (a2 << 4) | (a3 << 2) | (a4 << 0)) as unknown as Gene
+
+export const getAllele = (g: Gene, n: 1 | 2 | 3 | 4) =>
+    ((g as unknown as number >> ((4 - n) * 2)) & 0b11) as Allele
+
+export const geneToAlleles = (g: Gene) => [getAllele(g, 1), getAllele(g, 2), getAllele(g, 3), getAllele(g, 4)] as const
+
 export type FlowerGene = Gene
 type Allele11 = 0 | 1 | 3
 type UndefinedAllele = 2
 type Allele = Allele11 | UndefinedAllele
 export type FlowerAllele = Allele
 
-type GeneKey = number
-export type FlowerGeneKey = GeneKey
-export const geneKey = ([a1, a2, a3, a4]: Gene): GeneKey => (a1 << 6) | (a2 << 4) | (a3 << 2) | (a4 << 0)
-
 const specs = ((): FlowerSpecs => {
-    const result: { [k in FlowerKind]: ReadonlyMap<GeneKey, FlowerSpec> } = Object.create(null)
+    const result: { [k in FlowerKind]: ReadonlyMap<Gene, FlowerSpec> } = Object.create(null)
     const spec = getSpec()
     for (const kind in spec) {
         const key = kind as keyof (typeof spec)
-        const geneToSpec = new Map<GeneKey, FlowerSpec>()
+        const geneToSpec = new Map<Gene, FlowerSpec>()
         const specs = spec[key]
         for (const spec of specs) {
-            geneToSpec.set(geneKey(spec[2]), spec)
+            const [color, tag, [a1, a2, a3, a4]] = spec
+            const gene = geneFromAlleles(a1, a2, a3, a4)
+            geneToSpec.set(gene, [color, tag, gene])
         }
         result[key] = geneToSpec
     }
@@ -88,7 +97,7 @@ const allelePairs = (a: Allele): readonly (readonly [Allele, Allele])[] => {
 const makeAllGenes = (count: 3 | 4): readonly FlowerGene[] => {
     const alleles = [_00, _01, _11] as const
     const alleles4 = count === 4 ? alleles : [_u] as const
-    const genes = []
+    const genes: FlowerGene[] = []
     for (let i1 = 0; i1 < alleles.length; i1++) {
         const p1 = alleles[i1]!
         for (let i2 = 0; i2 < alleles.length; i2++) {
@@ -97,7 +106,7 @@ const makeAllGenes = (count: 3 | 4): readonly FlowerGene[] => {
                 const p3 = alleles[i3]!
                 for (let i4 = 0; i4 < alleles4.length; i4++) {
                     const p4 = alleles4[i4]!
-                    genes.push([p1, p2, p3, p4] as const)
+                    genes.push(geneFromAlleles(p1, p2, p3, p4))
                 }
             }
         }
@@ -108,17 +117,25 @@ const genes3 = makeAllGenes(3)
 const genes4 = makeAllGenes(4)
 const allGenes = (kind: FlowerKind) => kind === "バラ" ? genes4 : genes3
 
-export const geneEquals = (g1: Gene, g2: Gene) => {
-    if (g1.length !== g2.length) { return false }
-    for (let index = 0; index < g1.length; index++) {
-        if (g1[index] !== g2[index]) { return false }
+export const showAllele = (allele: FlowerAllele) => {
+    switch (allele) {
+        case _00: return "00"
+        case _01: return "01"
+        case _11: return "11"
+        case _u: return null
     }
-    return true
+}
+export const showGene = (gene: FlowerGene) => {
+    const alleles = geneToAlleles(gene).map(showAllele)
+    while (0 !== alleles.length && alleles[alleles.length - 1] === null) {
+        alleles.pop()
+    }
+    return alleles.map(a => a === null ? "??" : a).join("-")
 }
 
 const geneSpec = (kind: FlowerKind, gene: Gene) =>
-    specs[kind].get(geneKey(gene))
-    ?? error(`内部エラー: 花の仕様が見つかりませんでした。kind: ${kind}, gene: ${JSON.stringify(gene)}`)
+    specs[kind].get(gene)
+    ?? error(`内部エラー: 花の仕様が見つかりませんでした。kind: ${kind}, gene: ${JSON.stringify(showGene(gene))}`)
 
 /** @internal */
 export const flowerColor = (kind: FlowerKind, gene: Gene) => geneSpec(kind, gene)[0]
@@ -158,9 +175,17 @@ type ForEachFlow =
     | Flow.Continue
     | void
 
-export function forEachChildGenes([p11, p12, p13, p14]: Gene, [p21, p22, p23, p24]: Gene, action: (childGene: Gene) => ForEachFlow): void
-export function forEachChildGenes<State>([p11, p12, p13, p14]: Gene, [p21, p22, p23, p24]: Gene, action: (childGene: Gene, state: State) => ForEachFlow, state: State): void
-export function forEachChildGenes([p11, p12, p13, p14]: Gene, [p21, p22, p23, p24]: Gene, action: (childGene: Gene, state: unknown) => ForEachFlow, state?: unknown) {
+export function forEachChildGenes(parent1: Gene, parent2: Gene, action: (childGene: Gene) => ForEachFlow): void
+export function forEachChildGenes<State>(parent1: Gene, parent2: Gene, action: (childGene: Gene, state: State) => ForEachFlow, state: State): void
+export function forEachChildGenes(parent1: Gene, parent2: Gene, action: (childGene: Gene, state: unknown) => ForEachFlow, state?: unknown) {
+    const p11 = getAllele(parent1, 1)
+    const p12 = getAllele(parent1, 2)
+    const p13 = getAllele(parent1, 3)
+    const p14 = getAllele(parent1, 4)
+    const p21 = getAllele(parent2, 1)
+    const p22 = getAllele(parent2, 2)
+    const p23 = getAllele(parent2, 3)
+    const p24 = getAllele(parent2, 4)
     const as1 = childAlleles(p11, p21)
     const as2 = childAlleles(p12, p22)
     const as3 = childAlleles(p13, p23)
@@ -173,7 +198,7 @@ export function forEachChildGenes([p11, p12, p13, p14]: Gene, [p21, p22, p23, p2
                 const a3 = as3[i3] ?? _u
                 for (let i4 = 0; i4 < as4.length; i4++) {
                     const a4 = as4[i4] ?? _u
-                    const r = action([a1, a2, a3, a4], state)
+                    const r = action(geneFromAlleles(a1, a2, a3, a4), state)
                     switch (r) {
                         case Flow.Break: return
                         default: break
@@ -188,13 +213,12 @@ export function forEachChildGenes([p11, p12, p13, p14]: Gene, [p21, p22, p23, p2
  * @internal
  */
 export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (readonly [childGene: Gene, count: number])[] => {
-    const genes = new Map<GeneKey, { gene: Gene, count: number }>()
-    forEachChildGenes(parent1Gene, parent2Gene, childGene => {
-        const key = geneKey(childGene)
-        let entry = genes.get(key)
+    const genes = new Map<Gene, { gene: Gene, count: number }>()
+    forEachChildGenes(parent1Gene, parent2Gene, child => {
+        let entry = genes.get(child)
         if (entry === undefined) {
-            entry = { gene: childGene, count: 0 }
-            genes.set(key, entry)
+            entry = { gene: child, count: 0 }
+            genes.set(child, entry)
         }
         entry.count++
     })
@@ -211,7 +235,7 @@ const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gen
     let duplicated = false
     forEachChildGenes(parent1Gene, parent2Gene, child => {
         if (flowerColor(kind, child) === color) {
-            if (foundGene && !geneEquals(foundGene, child)) {
+            if (foundGene && foundGene !== child) {
                 duplicated = true
                 return Flow.Break
             }
@@ -227,7 +251,10 @@ const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gen
 export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: FilledFindBreedTreeOptions): readonly (readonly [Gene, Gene])[] => {
     const childColor = flowerColor(kind, childGene)
     const result: (readonly [Gene, Gene])[] = []
-    const [allele1, allele2, allele3, allele4] = childGene
+    const allele1 = getAllele(childGene, 1)
+    const allele2 = getAllele(childGene, 2)
+    const allele3 = getAllele(childGene, 3)
+    const allele4 = getAllele(childGene, 4)
     const allele1Pairs = allelePairs(allele1)
     const allele2Pairs = allelePairs(allele2)
     const allele3Pairs = allelePairs(allele3)
@@ -241,8 +268,8 @@ export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: Fil
                 for (let i4 = 0; i4 < allele4Pairs.length; i4++) {
                     const p4 = allele4Pairs[i4]!
 
-                    const parent1Gene = [p1[0], p2[0], p3[0], p4[0]] as const
-                    const parent2Gene = [p1[1], p2[1], p3[1], p4[1]] as const
+                    const parent1Gene = geneFromAlleles(p1[0], p2[0], p3[0], p4[0])
+                    const parent2Gene = geneFromAlleles(p1[1], p2[1], p3[1], p4[1])
 
                     if (options.distinguishedOnlyByColor && hasDuplicatedChildColor(kind, parent1Gene, parent2Gene, childColor)) { continue }
                     result.push([parent1Gene, parent2Gene])
@@ -255,7 +282,7 @@ export const findBreedParents = (kind: FlowerKind, childGene: Gene, options: Fil
 
 export const forEachBreedParentsOfGenes = (kind: FlowerKind, childGenes: readonly FlowerGene[], action: (parent1: Gene, parent2: Gene, childGeneCount: number) => void, options: FilledFindBreedTreeOptions) => {
     const genes = allGenes(kind)
-    const childGeneSet = new Set(childGenes.map(geneKey))
+    const childGeneSet = new Set(childGenes)
     const childColorSet = new Set(childGenes.map(g => flowerColor(kind, g)))
 
     // 全ての交配ペアを列挙する
@@ -267,8 +294,7 @@ export const forEachBreedParentsOfGenes = (kind: FlowerKind, childGenes: readonl
             // 交配ペアから生まれる全ての子を列挙する
             let targetGeneCount = 0
             forEachChildGenes(parent1, parent2, child => {
-                const childKey = geneKey(child)
-                if (childGeneSet.has(childKey)) {
+                if (childGeneSet.has(child)) {
 
                     // 生まれる子が対象🧬に含まれている
                     targetGeneCount++
@@ -319,7 +345,7 @@ export const getChildRate = (parent1: Gene, parent2: Gene, child: Gene) => {
     let allGeneCount = 0
     forEachChildGenes(parent1, parent2, someChild => {
         allGeneCount++
-        if (geneEquals(someChild, child)) {
+        if (someChild === child) {
             childGeneCount++
         }
     })
@@ -351,27 +377,26 @@ export const breedTreeCost = (tree: BreedTree): number => {
 export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindBreedTreeOptions) => {
     const filledOptions = fillOptions(findBreedTreeOptionsSpec, options)
 
-    const rootSet: ReadonlySet<GeneKey> = new Set(rootGenes.map(geneKey))
-    const visitedGeneSet = new Set<GeneKey>()
+    const rootSet: ReadonlySet<Gene> = new Set(rootGenes)
+    const visitedGeneSet = new Set<Gene>()
     type BreedTreeWithCost = [cost: number, tree: BreedTree]
-    const memo = new Map<GeneKey, BreedTreeWithCost | null>()
+    const memo = new Map<Gene, BreedTreeWithCost | null>()
 
     const worker = (child: Gene): BreedTreeWithCost | null => {
-        const childKey = geneKey(child)
 
         // 始祖の中に子が含まれるなら返す
-        if (rootSet.has(childKey)) {
+        if (rootSet.has(child)) {
             const tree: BreedTreeWithCost = [0, ["Root", child]]
-            memo.set(childKey, tree)
+            memo.set(child, tree)
             return tree
         }
         // メモ
-        const result = memo.get(childKey)
+        const result = memo.get(child)
         if (result !== undefined) { return result }
 
         // 循環参照
-        if (visitedGeneSet.has(childKey)) { return null }
-        visitedGeneSet.add(childKey)
+        if (visitedGeneSet.has(child)) { return null }
+        visitedGeneSet.add(child)
 
         // 子が生まれる親の組み合わせを列挙
         const pairs = findBreedParents(kind, child, filledOptions)
@@ -397,13 +422,13 @@ export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], chil
         }
 
         if (minCostTree == null) {
-            memo.set(childKey, null)
+            memo.set(child, null)
             return null
         }
 
-        visitedGeneSet.delete(childKey)
+        visitedGeneSet.delete(child)
 
-        memo.set(childKey, minCostTree)
+        memo.set(child, minCostTree)
         return minCostTree
     }
     return worker(childGene)?.[1]
@@ -430,7 +455,7 @@ const isArrayMin = <T, N extends number>(array: T[], minLength: N): array is Arr
 
 export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerGene[], goals: readonly FlowerGene[], options?: FindBreedTreeOptions) => {
     const filledOptions = fillOptions(findBreedTreeOptionsSpec, options)
-    const goalKeys = new Set(goals.map(geneKey))
+    const goalSet = new Set(goals)
     const pairs = findBreedPairs(kind, goals, filledOptions)
 
     // 交配ペアの親を生成する交配木を求める
@@ -442,12 +467,11 @@ export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerG
         if (!tree2) { return result }
 
         const children: FlowerGene[] = []
-        const childKeySet = new Set<FlowerGeneKey>()
+        const childSet = new Set<FlowerGene>()
         forEachChildGenes(parent1, parent2, child => {
-            const childKey = geneKey(child)
-            if (goalKeys.has(childKey) && !childKeySet.has(childKey)) {
+            if (goalSet.has(child) && !childSet.has(child)) {
                 children.push(child)
-                childKeySet.add(childKey)
+                childSet.add(child)
             }
         })
         if (isArrayMin(children, 2)) {

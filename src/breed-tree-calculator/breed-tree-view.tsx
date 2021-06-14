@@ -1,6 +1,6 @@
 import React from "react"
-import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, FlowerGeneKey, geneKey, getChildRate, flowerIsSeed, BreedMulti } from "../flower"
-import { showColor, showGene } from "../flower-view"
+import { FlowerColor, FlowerKind, FlowerGene, flowerColor, BreedTree, getChildRate, flowerIsSeed, BreedMulti, showGene } from "../flower"
+import { showColor } from "../flower-view"
 import { log } from "../helpers"
 
 const flowerColorToCssColor = (color: FlowerColor): NonNullable<React.CSSProperties["color"]> => {
@@ -45,16 +45,15 @@ const BreedDetailView = ({ kind, breed: { parent1, parent2, children } }: Readon
     </div>
 }
 
-const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGeneKey>): Breed[] => {
+const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGene>): Breed[] => {
     switch (tree[0]) {
         case "Root": return []
         case "Breed": {
             const [, child, tree1, tree2] = tree
-            const key = geneKey(child)
             const breed =
-                geneSet.has(key)
+                geneSet.has(child)
                     ? []
-                    : (geneSet.add(key), [{
+                    : (geneSet.add(child), [{
                         parent1: tree1[1],
                         parent2: tree2[1],
                         children: [child],
@@ -69,7 +68,7 @@ const breedTreeToBreeds = (tree: BreedTree, geneSet: Set<FlowerGeneKey>): Breed[
     }
 }
 
-const breedTopToBreeds = (tree: BreedMulti | BreedTree, set: Set<FlowerGeneKey>) => {
+const breedTopToBreeds = (tree: BreedMulti | BreedTree, set: Set<FlowerGene>) => {
     switch (tree[0]) {
         case "BreedMulti": return [
             ...breedTreeToBreeds(tree[2], set),
@@ -87,7 +86,7 @@ export const BreedTreeView = ({ kind, tree }: Readonly<{
     kind: FlowerKind
     tree: BreedMulti | BreedTree
 }>) => {
-    const breeds = breedTopToBreeds(tree, new Set<FlowerGeneKey>())
+    const breeds = breedTopToBreeds(tree, new Set<FlowerGene>())
     log`tree: ${JSON.stringify(tree)}`
     log`breeds: ${JSON.stringify(breeds)}`
     const breedViews = breeds.map((breed, index) => <BreedDetailView key={index} kind={kind} breed={breed} />)

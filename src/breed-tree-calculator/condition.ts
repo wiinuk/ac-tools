@@ -1,4 +1,4 @@
-import { FlowerGene, FlowerColor, FlowerKind, geneEquals, flowerColor, flowerIsSeed } from "../flower"
+import { FlowerGene, FlowerColor, FlowerKind, flowerColor, flowerIsSeed } from "../flower"
 
 type LeafConditionKind<Key extends string, Leaf> = {
     kind: "Leaf"
@@ -28,7 +28,7 @@ export const andCondition = (color: AndCondition["color"], seed: AndCondition["s
 
 const evaluateLeaf = (kind: FlowerKind, gene: FlowerGene, condition: LeafCondition) => {
     switch (condition.key) {
-        case "gene": return geneEquals(gene, condition.value)
+        case "gene": return gene === condition.value
         case "color": return flowerColor(kind, gene) === condition.value
         case "seed": return flowerIsSeed(kind, gene)
     }
