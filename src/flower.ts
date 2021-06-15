@@ -1,13 +1,7 @@
 
 import getSpec from "./flower-spec"
+import { error, exhaustiveCheck } from "./helpers"
 import { fill as fillOptions, FilledOptions, optionSpec, OptionsSpecToOptions } from "./options"
-
-function error(message: TemplateStringsArray, ...args: unknown[]): never
-function error(message: string): never
-function error(message: string | TemplateStringsArray, ...args: unknown[]) {
-    throw new Error(typeof message === "string" ? message : String.raw(message, ...args))
-}
-const exhaustiveCheck = (_: never) => error`exhaustiveCheck`
 
 type flowerSpecOfRawSpecs<rawSpecs> =
     rawSpecs extends readonly (infer rawSpec)[]

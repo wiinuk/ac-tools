@@ -7,3 +7,9 @@ export const log = (template: TemplateStringsArray, ...values: unknown[]) => {
     }
     console.log(result)
 }
+export function error(message: TemplateStringsArray, ...args: unknown[]): never
+export function error(message: string): never
+export function error(message: string | TemplateStringsArray, ...args: unknown[]) {
+    throw new Error(typeof message === "string" ? message : String.raw(message, ...args))
+}
+export const exhaustiveCheck = (_: never) => error`exhaustiveCheck`
