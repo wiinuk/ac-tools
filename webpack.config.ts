@@ -11,6 +11,10 @@ const config: Configuration = {
     module: {
         rules: [
             {
+                test: /\.worker\.tsx?$/,
+                use: { loader: "worker-loader" },
+            },
+            {
                 test: /\.tsx?$/,
                 use: "ts-loader",
                 exclude: ["/node_modules/"],

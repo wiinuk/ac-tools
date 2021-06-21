@@ -1,4 +1,4 @@
-import { identity, Identity } from "./types"
+import { identity, Identity } from "./type-level/helpers"
 
 type TypeDescriptionKind = string
 type typeDescToType<d extends TypeDescriptionKind> =

@@ -102,9 +102,23 @@ describe("flower.findBreedParents", () => {
                 expect(
                     getChildGenes(p1, p2)
                         .filter(([g]) => flowerColor(kind, g) === childColor)
-                        .length
-                ).toEqual(1)
+                ).toHaveLength(1)
             })
+        })
+    })
+    test("見分けられる交配のみを対象としているか ( バラ-00-00-00-00 )", () => {
+        const kind = "バラ"
+        const gene = geneFromAlleles(_00, _00, _00, _00)
+
+        const childGene = kind === "バラ" ? gene : geneFromAlleles(getAllele(gene, 1), getAllele(gene, 2), getAllele(gene, 3), _u)
+        const childColor = flowerColor(kind, childGene)
+        const pairs = findBreedParents(kind, childGene, { distinguishedOnlyByColor: true })
+
+        pairs.forEach(([p1, p2]) => {
+            expect(
+                getChildGenes(p1, p2)
+                    .filter(([g]) => flowerColor(kind, g) === childColor)
+            ).toHaveLength(1)
         })
     })
     test("見分けられる交配のみを対象としているか ( コスモス-11-01-01 )", () => {
@@ -118,8 +132,7 @@ describe("flower.findBreedParents", () => {
             expect(
                 getChildGenes(p1, p2)
                     .filter(([g]) => flowerColor(kind, g) === childColor)
-                    .length
-            ).toEqual(1)
+            ).toHaveLength(1)
         })
     })
 })
