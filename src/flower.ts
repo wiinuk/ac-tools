@@ -230,7 +230,7 @@ export const getChildGenes = (parent1Gene: Gene, parent2Gene: Gene): readonly (r
 /**
  * 指定された遺伝子を持つ親を交配したとき、🧬は違うが色（指定された色）が同じ子が生まれるかどうかを表す真偽値を返す
  */
-const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gene: Gene, color: FlowerColor) => {
+export const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, parent2Gene: Gene, color: FlowerColor) => {
     let foundGene: Gene | null = null
     let duplicated = false
     forEachChildGenes(parent1Gene, parent2Gene, child => {

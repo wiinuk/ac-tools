@@ -2,9 +2,7 @@ import { describe, test, expect } from "@jest/globals"
 import { AbortError, Progress } from "../src/async"
 import { ClientProxy, connectWorkerClient, listenWorkerServer } from "../src/worker/interface"
 import { createDummyWorkerAndPort } from "./dummy-sync-worker"
-import * as q from "qcheck"
-import { FlowerAllele, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, showAllele, showGene, _00, _01, _11 } from "../src/flower"
-import { Random } from "qcheck"
+import { _00, _01, _11 } from "../src/flower"
 
 
 interface CountDownOptions {

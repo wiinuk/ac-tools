@@ -1,6 +1,8 @@
 import { describe, test, expect } from "@jest/globals"
-import { BreedTree, breedTreeToBreeds, childAlleles, findBreedParents, findBreedTree, findBreedTreesOfGoals, FlowerAllele, flowerColor, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
+import { BreedTree, breedTreeToBreeds, childAlleles, findBreedParents, findBreedTree, findBreedTreesOfGoals, FlowerAllele, flowerColor, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, hasDuplicatedChildColor, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
 import * as q from "qcheck"
+import { unreachable, kind } from "../src/type-level/helpers"
+import { addN, Nat, NatKind, toNumberN } from "../src/type-level/nat"
 
 const kind = q.elements(...flowerKinds.concat().reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
 const allele: q.Checker<FlowerAllele> = q.elements(_00, _01, _11).withPrinter(x => showAllele(x) ?? "??")
@@ -106,6 +108,101 @@ describe("flower.findBreedParents", () => {
             })
         })
     })
+    type TextSpanKind = {
+        start: number
+        end: number
+    }
+    type DiagnosticKind = {
+        message: string
+        span: TextSpanKind
+    }
+    type Diagnostic<message extends string, span extends TextSpanKind> = {
+        message: message
+        span: span
+    }
+    type CharStreamKind = {
+        remaining: string
+        consumed: string
+        diagnostics: DiagnosticKind[]
+    }
+    type stringLength<s extends string, result extends NatKind = Nat<0>> =
+        s extends `${infer _}${infer rest}`
+        ? stringLength<rest, addN<result, Nat<1>>>
+        : toNumberN<result>
+
+    type streamSpan<start extends CharStreamKind, end extends CharStreamKind> = kind<TextSpanKind, {
+        start: stringLength<start["consumed"]>
+        end: stringLength<end["consumed"]>
+    }>
+    type report<stream extends CharStreamKind, message extends string, span extends TextSpanKind = streamSpan<stream, stream>> = kind<CharStreamKind, {
+        remaining: stream["remaining"]
+        consumed: stream["consumed"]
+        diagnostics: [...stream["diagnostics"], Diagnostic<message, span>]
+    }>
+    type parseOk<stream extends CharStreamKind> = [true, stream]
+    type parseFailure<stream extends CharStreamKind> = [false, stream]
+
+    /** `00 | 01 | 11` */
+    type parseAllele<stream extends CharStreamKind> =
+        stream["remaining"] extends `${infer c0}${infer c1}${infer remaining}`
+        ? (
+            `${c0}${c1}` extends "00" | "01" | "11"
+            ? parseOk<{
+                remaining: remaining
+                consumed: `${stream["consumed"]}${c0}${c1}`
+                diagnostics: stream["diagnostics"]
+            }>
+            : parseFailure<report<stream, "対立遺伝子 (00、01、11) が必要です">>
+        )
+        : parseFailure<report<stream, "対立遺伝子 (00、01、11) が必要です">>
+
+    /** `- ` */
+    type parseQuoteAndAllele<stream
+
+    /** `\k<allele> ( -? \k<allele> ){2, 3}` */
+    type parseGeneView<stream extends CharStreamKind> =
+    parseAllele < stream > extends infer result
+        ? (
+            result extends parseOk<infer stream>
+            ?(
+                    parseQuoteAndAllele < stream > extends infer result
+                ? (
+                    result extends parseOk<infer stream>
+                    ?(
+                    parseQuoteAndAllele < stream > extends infer result
+                ? (
+                    result extends parseOk<infer stream>
+                            ?(
+                    parseQuoteAndAllele < stream > extends parseOk<infer stream>
+                                ?parseOk<stream>
+                                : parseOk<stream>
+                            )
+                            : result
+                )
+                        : unreachable
+            )
+                    : result
+            )
+                : unreachable
+            )
+            : result
+            )
+        : unreachable
+
+    type GeneViewParseResult = {
+        diagnostics: DiagnosticKind[]
+    }
+    type ParseGeneView<source extends string> =
+        parse<stringFromSource<source>>
+
+    type CheckGeneView<source extends string> = ParseGeneView<source> extends kind<GeneViewParseResult, infer result> ? result["diagnostics"] extends [] ? source : result["diagnostics"] : unreachable
+    const fg = <T extends string>(s: CheckGeneView<T>) => geneFromAlleles(_00, _00, _00, _00)
+    test("01-00-00-00 と 00-00-00-00 の子の色は重複している", () => {
+        hasDuplicatedChildColor("バラ",
+            fg("01000000"),
+            fg("00000000"),
+        )
+    })
     test("見分けられる交配のみを対象としているか ( バラ-00-00-00-00 )", () => {
         const kind = "バラ"
         const gene = geneFromAlleles(_00, _00, _00, _00)
@@ -118,6 +215,11 @@ describe("flower.findBreedParents", () => {
             expect(
                 getChildGenes(p1, p2)
                     .filter(([g]) => flowerColor(kind, g) === childColor)
+                    .map(([g]) => ({
+                        parents: [showGene(p1), showGene(p2)],
+                        gene: showGene(g),
+                        color: flowerColor(kind, g),
+                    }))
             ).toHaveLength(1)
         })
     })
