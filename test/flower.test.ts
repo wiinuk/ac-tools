@@ -152,14 +152,14 @@ describe("flower.findBreedParents", () => {
                 consumed: `${stream["consumed"]}${c0}${c1}`
                 diagnostics: stream["diagnostics"]
             }>
-            : parseFailure<report<stream, "対立遺伝子 (00、01、11) が必要です">>
+            : parseFailure<report<stream, "対立遺伝子 (00・01・11) が必要です">>
         )
-        : parseFailure<report<stream, "対立遺伝子 (00、01、11) が必要です">>
+        : parseFailure<report<stream, "対立遺伝子 (00・01・11) が必要です">>
 
-    /** `- ` */
+    /** `(00|01|11) | ((?# empty )|1|11|01|00) -` */
     type parseQuoteAndAllele<stream
 
-    /** `\k<allele> ( -? \k<allele> ){2, 3}` */
+        /** `\k<alleleAndQuote>{2, 3} \k<lastAllele>` */
     type parseGeneView<stream extends CharStreamKind> =
     parseAllele < stream > extends infer result
         ? (
