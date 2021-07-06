@@ -235,7 +235,7 @@ export const hasDuplicatedChildColor = (kind: FlowerKind, parent1Gene: Gene, par
     let duplicated = false
     forEachChildGenes(parent1Gene, parent2Gene, child => {
         if (flowerColor(kind, child) === color) {
-            if (foundGene && foundGene !== child) {
+            if (foundGene != null && foundGene !== child) {
                 duplicated = true
                 return Flow.Break
             }

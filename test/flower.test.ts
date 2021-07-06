@@ -1,10 +1,11 @@
 import { describe, test, expect } from "@jest/globals"
-import { BreedTree, breedTreeToBreeds, childAlleles, findBreedParents, findBreedTree, findBreedTreesOfGoals, FlowerAllele, flowerColor, FlowerKind, flowerKinds, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, hasDuplicatedChildColor, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
+import { BreedTree, breedTreeToBreeds, childAlleles, findBreedParents, findBreedTree, findBreedTreesOfGoals, FlowerAllele, flowerColor, FlowerKind, flowerKinds, forEachChildGenes, geneFromAlleles, geneToAlleles, getAllele, getChildGenes, hasDuplicatedChildColor, showAllele, showGene, _00, _01, _11, _u } from "../src/flower"
 import * as q from "qcheck"
-import { unreachable, kind } from "../src/type-level/helpers"
+import type { unreachable, kind, cast } from "../src/type-level/helpers"
 import { addN, Nat, NatKind, toNumberN } from "../src/type-level/nat"
+import { error } from "../src/helpers"
 
-const kind = q.elements(...flowerKinds.concat().reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
+const flowerKind = q.elements(...flowerKinds.concat().reverse() as readonly string[] as readonly [FlowerKind, ...FlowerKind[]])
 const allele: q.Checker<FlowerAllele> = q.elements(_00, _01, _11).withPrinter(x => showAllele(x) ?? "??")
 const gene4 = q.tuple(allele, allele, allele, allele).map(as => geneFromAlleles(...as), x => [...geneToAlleles(x)]).withPrinter(showGene)
 
@@ -95,7 +96,7 @@ describe("flower.findBreedParents", () => {
         ])
     })
     test("見分けられる交配のみを対象としているか", () => {
-        q.tuple(kind, gene4).check(([kind, gene]) => {
+        q.tuple(flowerKind, gene4).check(([kind, gene]) => {
             const childGene = kind === "バラ" ? gene : geneFromAlleles(getAllele(gene, 1), getAllele(gene, 2), getAllele(gene, 3), _u)
             const childColor = flowerColor(kind, childGene)
             const pairs = findBreedParents(kind, childGene, { distinguishedOnlyByColor: true })
@@ -112,6 +113,10 @@ describe("flower.findBreedParents", () => {
         start: number
         end: number
     }
+    type TextSpan<start extends TextSpanKind["start"], end extends TextSpanKind["end"]> = {
+        start: start
+        end: end
+    }
     type DiagnosticKind = {
         message: string
         span: TextSpanKind
@@ -125,11 +130,31 @@ describe("flower.findBreedParents", () => {
         consumed: string
         diagnostics: DiagnosticKind[]
     }
-    type stringLength<s extends string, result extends NatKind = Nat<0>> =
+    type streamFromSource<source extends string> = kind<CharStreamKind, {
+        remaining: source
+        consumed: ""
+        diagnostics: []
+    }>
+    type stringLengthAsNat<s extends string, result extends NatKind = Nat<0>> =
         s extends `${infer _}${infer rest}`
-        ? stringLength<rest, addN<result, Nat<1>>>
-        : toNumberN<result>
+        ? stringLengthAsNat<rest, addN<result, Nat<1>>>
+        : result
 
+    type stringLength<s extends string> =
+        toNumberN<stringLengthAsNat<s>>
+
+    type stringJoinTail<elements extends readonly string[], separator extends string> =
+        elements extends readonly [kind<string, infer head>, ...kind<readonly string[], infer rest>]
+        ? `${separator}${head}${stringJoinTail<rest, separator>}`
+        : ``
+
+    type stringJoin<elements extends readonly string[], separator extends string = ","> =
+        elements extends readonly [kind<string, infer head>, ...kind<readonly string[], infer rest>]
+        ? `${head}${stringJoinTail<rest, separator>}`
+        : ``
+
+    type streamPositionAsNat<stream extends CharStreamKind> = stringLengthAsNat<stream["consumed"]>
+    type streamPosition<stream extends CharStreamKind> = toNumberN<streamPositionAsNat<stream>>
     type streamSpan<start extends CharStreamKind, end extends CharStreamKind> = kind<TextSpanKind, {
         start: stringLength<start["consumed"]>
         end: stringLength<end["consumed"]>
@@ -139,69 +164,108 @@ describe("flower.findBreedParents", () => {
         consumed: stream["consumed"]
         diagnostics: [...stream["diagnostics"], Diagnostic<message, span>]
     }>
-    type parseOk<stream extends CharStreamKind> = [true, stream]
-    type parseFailure<stream extends CharStreamKind> = [false, stream]
+    type parseEos<stream extends CharStreamKind> =
+        stream["remaining"] extends ""
+        ? stream
+        : report<stream, "予期しない文字です", TextSpan<streamPosition<stream>, toNumberN<addN<streamPositionAsNat<stream>, Nat<1>>>>>
 
     /** `00 | 01 | 11` */
     type parseAllele<stream extends CharStreamKind> =
         stream["remaining"] extends `${infer c0}${infer c1}${infer remaining}`
         ? (
             `${c0}${c1}` extends "00" | "01" | "11"
-            ? parseOk<{
+            ? kind<CharStreamKind, {
                 remaining: remaining
                 consumed: `${stream["consumed"]}${c0}${c1}`
                 diagnostics: stream["diagnostics"]
             }>
-            : parseFailure<report<stream, "対立遺伝子 (00・01・11) が必要です">>
+            : report<stream, "対立遺伝子 (00・01・11) が必要です">
         )
-        : parseFailure<report<stream, "対立遺伝子 (00・01・11) が必要です">>
+        : report<stream, "対立遺伝子 (00・01・11) が必要です">
 
-    /** `(00|01|11) | ((?# empty )|1|11|01|00) -` */
-    type parseQuoteAndAllele<stream
-
-        /** `\k<alleleAndQuote>{2, 3} \k<lastAllele>` */
+    /** `\k<alleleAndQuote>{2, 3} \k<lastAllele>` */
     type parseGeneView<stream extends CharStreamKind> =
-    parseAllele < stream > extends infer result
+        parseAllele<stream> extends infer result
         ? (
-            result extends parseOk<infer stream>
-            ?(
-                    parseQuoteAndAllele < stream > extends infer result
+            result extends kind<CharStreamKind, infer stream>
+            ? (
+                parseAllele<stream> extends infer result
                 ? (
-                    result extends parseOk<infer stream>
-                    ?(
-                    parseQuoteAndAllele < stream > extends infer result
-                ? (
-                    result extends parseOk<infer stream>
-                            ?(
-                    parseQuoteAndAllele < stream > extends parseOk<infer stream>
-                                ?parseOk<stream>
-                                : parseOk<stream>
+                    result extends kind<CharStreamKind, infer stream>
+                    ? (
+                        parseAllele<stream> extends infer result
+                        ? (
+                            result extends kind<CharStreamKind, infer stream>
+                            ? (
+                                parseAllele<stream> extends kind<CharStreamKind, infer stream>
+                                ? parseEos<stream>
+                                : parseEos<stream>
                             )
                             : result
-                )
+                        )
                         : unreachable
-            )
+                    )
                     : result
-            )
+                )
                 : unreachable
             )
             : result
-            )
+        )
         : unreachable
 
     type GeneViewParseResult = {
         diagnostics: DiagnosticKind[]
     }
     type ParseGeneView<source extends string> =
-        parse<stringFromSource<source>>
+        parseGeneView<streamFromSource<source>> extends kind<CharStreamKind, infer stream>
+        ? kind<GeneViewParseResult, {
+            diagnostics: stream["diagnostics"]
+        }>
+        : unreachable
 
-    type CheckGeneView<source extends string> = ParseGeneView<source> extends kind<GeneViewParseResult, infer result> ? result["diagnostics"] extends [] ? source : result["diagnostics"] : unreachable
-    const fg = <T extends string>(s: CheckGeneView<T>) => geneFromAlleles(_00, _00, _00, _00)
-    test("01-00-00-00 と 00-00-00-00 の子の色は重複している", () => {
-        hasDuplicatedChildColor("バラ",
+    type showDiagnostic<diagnostic extends DiagnosticKind> =
+        `(0,${diagnostic["span"]["start"]}-0,${diagnostic["span"]["end"]}):${diagnostic["message"]}`
+
+    type showDiagnostics<diagnostics extends DiagnosticKind[]> =
+        stringJoin<{ [i in keyof diagnostics]: showDiagnostic<cast<DiagnosticKind, diagnostics[i]>> }, "\r\n">
+
+    type CheckGeneView<source extends string> =
+        ParseGeneView<source> extends kind<GeneViewParseResult, infer result>
+        ? (
+            result["diagnostics"] extends []
+            ? source
+            : showDiagnostics<result["diagnostics"]>
+        )
+        : unreachable
+
+    const parseAlleleView = (s: string | undefined) => {
+        switch (s) {
+            case "00": return _00
+            case "01": return _01
+            case "11": return _11
+            case undefined: return _u
+            default: return error`不明な対立遺伝子 ${s}`
+        }
+    }
+    const fg = <T extends string>(s: CheckGeneView<T>) => {
+        const r = /^(00|01|11)(00|01|11)(00|01|11)(00|01|11)?$/.exec(s)
+        if (r == null) { return error`` }
+        return geneFromAlleles(parseAlleleView(r[1]), parseAlleleView(r[2]), parseAlleleView(r[3]), parseAlleleView(r[4]))
+    }
+    test("バラ-01-00-00-00 と 00-00-00-00 の子", () => {
+        const children = new Set()
+        forEachChildGenes(fg("01000000"), fg("00000000"), gene => void children.add(gene))
+        expect(children)
+            .toStrictEqual(new Set([fg("01000000"), fg("00000000")]))
+    })
+    test("バラ-01-00-00-00 と 00-00-00-00 の白い子は重複している", () => {
+        // 00-00-00-00 → 白
+        // 01-00-00-00 → 白
+        expect(hasDuplicatedChildColor("バラ",
             fg("01000000"),
             fg("00000000"),
-        )
+            "白"
+        )).toBe(true)
     })
     test("見分けられる交配のみを対象としているか ( バラ-00-00-00-00 )", () => {
         const kind = "バラ"
