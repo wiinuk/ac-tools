@@ -18,6 +18,10 @@ const mapBreedTree = <G1, G2>(tree: BreedTree<G1>, mapping: (gene: G1) => G2): B
     }
 }
 const showBreedTreeGenes = (tree: BreedTree) => mapBreedTree(tree, showGene)
+const defaultOptions = {
+    distinguishedOnlyByColor: true,
+    yieldStrategy: () => () => undefined,
+}
 
 describe("flower.*", () => {
     test("childAlleles の戻り値型は Allele", () => {
@@ -74,7 +78,7 @@ describe("flower.*", () => {
 describe("flower.findBreedParents", () => {
     test("ヒヤシンス-00-00-00 を生成する親の確認", () => {
         expect(
-            findBreedParents("ヒヤシンス", geneFromAlleles(_00, _00, _00, _u), { distinguishedOnlyByColor: true })
+            findBreedParents("ヒヤシンス", geneFromAlleles(_00, _00, _00, _u), { ...defaultOptions, distinguishedOnlyByColor: true })
                 .map(([p1, p2]) => [geneToAlleles(p1), geneToAlleles(p2)] as const)
         ).toEqual([
             [[0, 0, 0, 2], [0, 0, 0, 2]],
@@ -99,7 +103,7 @@ describe("flower.findBreedParents", () => {
         q.tuple(flowerKind, gene4).check(([kind, gene]) => {
             const childGene = kind === "バラ" ? gene : geneFromAlleles(getAllele(gene, 1), getAllele(gene, 2), getAllele(gene, 3), _u)
             const childColor = flowerColor(kind, childGene)
-            const pairs = findBreedParents(kind, childGene, { distinguishedOnlyByColor: true })
+            const pairs = findBreedParents(kind, childGene, { ...defaultOptions, distinguishedOnlyByColor: true })
 
             pairs.forEach(([p1, p2]) => {
                 expect(
@@ -273,7 +277,7 @@ describe("flower.findBreedParents", () => {
 
         const childGene = kind === "バラ" ? gene : geneFromAlleles(getAllele(gene, 1), getAllele(gene, 2), getAllele(gene, 3), _u)
         const childColor = flowerColor(kind, childGene)
-        const pairs = findBreedParents(kind, childGene, { distinguishedOnlyByColor: true })
+        const pairs = findBreedParents(kind, childGene, { ...defaultOptions, distinguishedOnlyByColor: true })
 
         pairs.forEach(([p1, p2]) => {
             expect(
@@ -292,7 +296,7 @@ describe("flower.findBreedParents", () => {
         const childGene = geneFromAlleles(_11, _01, _01, _u)
 
         const childColor = flowerColor(kind, childGene)
-        const pairs = findBreedParents(kind, childGene, { distinguishedOnlyByColor: true })
+        const pairs = findBreedParents(kind, childGene, { ...defaultOptions, distinguishedOnlyByColor: true })
 
         pairs.forEach(([p1, p2]) => {
             expect(
@@ -318,8 +322,8 @@ describe("flower.findBreedTree", () => {
             ]
         )
     })
-    test("キク-{01-00-00,00-11-00,00-00-11} から キク-00-11-11 への交配木", () => {
-        const tree = findBreedTree(
+    test("キク-{01-00-00,00-11-00,00-00-11} から キク-00-11-11 への交配木", async () => {
+        const tree = await findBreedTree(
             "キク",
             [
                 geneFromAlleles(_01, _00, _00, _u), // 白種
@@ -346,8 +350,8 @@ describe("flower.findBreedTree", () => {
     })
 })
 describe("flower.findBreedTreesOfGoals", () => {
-    test("ヒヤシンス-{01-00-11, 01-00-00} から ヒヤシンス-01-00-01", () => {
-        const trees = findBreedTreesOfGoals(
+    test("ヒヤシンス-{01-00-11, 01-00-00} から ヒヤシンス-01-00-01", async () => {
+        const trees = await findBreedTreesOfGoals(
             "ヒヤシンス",
             [
                 geneFromAlleles(_01, _00, _11, _u), // 赤種

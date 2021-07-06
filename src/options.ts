@@ -8,8 +8,8 @@ type typeDescToType<d extends TypeDescriptionKind> =
     never
 
 class OptionSpec<T, V extends T> {
-    private readonly _phantom_type: Identity<T> = identity
-    private constructor(readonly defaultValue: V) { }
+    private readonly _phantom_type = identity<T>()
+    constructor(readonly defaultValue: V) { }
     static create<Type extends TypeDescriptionKind, V extends typeDescToType<Type>>(_type: Type, defaultValue: V) {
         return new OptionSpec<typeDescToType<Type>, V>(defaultValue)
     }
@@ -18,6 +18,9 @@ class OptionSpec<T, V extends T> {
 type OptionSpecKind = OptionSpec<any, any>
 export const optionSpec = <typeDesc extends TypeDescriptionKind, defaultValue extends typeDescToType<typeDesc>>(type: typeDesc, defaultValue: defaultValue) => {
     return OptionSpec.create(type, defaultValue)
+}
+export const optionSpecType = <Type, defaultValue extends Type>(type: Identity<Type>, defaultValue: defaultValue) => {
+    return new OptionSpec<Type, defaultValue>(defaultValue)
 }
 
 export type OptionsSpecKind = { [key: string]: OptionSpecKind | undefined }

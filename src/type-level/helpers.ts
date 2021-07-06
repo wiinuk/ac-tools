@@ -9,6 +9,7 @@ export type equals<a, b> =
 export type eq<a, b> = [a] extends [b] ? ([b] extends [a] ? true : false) : false
 
 export type Identity<T> = (x: T) => T
-export const identity = <T>(x: T) => x
+const id = <T>(x: T) => x
+export const identity = <T>(): Identity<T> => id
 
 export type unreachable = never

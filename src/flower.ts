@@ -1,7 +1,8 @@
 
 import getSpec from "./flower-spec"
 import { error, exhaustiveCheck } from "./helpers"
-import { fill as fillOptions, FilledOptions, optionSpec, OptionsSpecToOptions } from "./options"
+import { fill as fillOptions, FilledOptions, optionSpec, optionSpecType, OptionsSpecToOptions } from "./options"
+import { identity } from "./type-level/helpers"
 
 type flowerSpecOfRawSpecs<rawSpecs> =
     rawSpecs extends readonly (infer rawSpec)[]
@@ -313,9 +314,26 @@ export const forEachBreedParentsOfGenes = (kind: FlowerKind, childGenes: readonl
     }
 }
 
+type Yielder = () => Promise<undefined> | undefined
+const timeSpanYielder = (intervalMilliseconds: number): Yielder => {
+    let nextDate = 0
+    return () => {
+        const now = Date.now()
+        if (nextDate <= now) {
+            nextDate = now + intervalMilliseconds
+            return new Promise(onSuccess => {
+                setInterval(onSuccess, 0)
+            })
+        }
+    }
+}
+const makeDefaultYielder = () => timeSpanYielder(5)
+
 export const findBreedTreeOptionsSpec = {
     /** 交配するとき、子が色で見分けられないなら除外する */
-    distinguishedOnlyByColor: optionSpec("boolean", true)
+    distinguishedOnlyByColor: optionSpec("boolean", true),
+    /** 重い計算でスレッドを占有しないようにするため、スレッドを他の処理に譲る方法を指定する */
+    yieldStrategy: optionSpecType(identity<() => Yielder>(), makeDefaultYielder)
 } as const
 export type FindBreedTreeOptions = OptionsSpecToOptions<typeof findBreedTreeOptionsSpec>
 export type FilledFindBreedTreeOptions = FilledOptions<typeof findBreedTreeOptionsSpec>
@@ -399,6 +417,17 @@ export const getBreedTopRate = (tree: BreedTree | BreedMulti): number => {
         default: return getBreedTreeRate(tree)
     }
 }
+const memoizeAsyncRecursiveFunction1 = <arg0, result>(recursiveFunc: (memoizeRecursiveFunc: (arg0: arg0) => Promise<result>, arg0: arg0) => Promise<result>): (arg0: arg0) => Promise<result> => {
+    const memo = new Map<arg0, result>()
+    return async function f(arg0: arg0): Promise<result> {
+        const v = memo.get(arg0)
+        if (v !== undefined) { return v }
+
+        const result = await recursiveFunc(f, arg0)
+        memo.set(arg0, result)
+        return result
+    }
+}
 /**
  * 目標となる花の遺伝子を生成する最小コストの交配木を返す
  * @param kind 花の種類
@@ -406,25 +435,24 @@ export const getBreedTopRate = (tree: BreedTree | BreedMulti): number => {
  * @param childGene 目標となる花の遺伝子
  * @param options
  */
-export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindBreedTreeOptions) => {
+export const findBreedTree = async (kind: FlowerKind, rootGenes: readonly Gene[], childGene: Gene, options?: FindBreedTreeOptions) => {
     const filledOptions = fillOptions(findBreedTreeOptionsSpec, options)
 
+    const yielder = filledOptions.yieldStrategy()
     const rootSet: ReadonlySet<Gene> = new Set(rootGenes)
     const visitedGeneSet = new Set<Gene>()
     type BreedTreeWithCost = [cost: number, tree: BreedTree]
-    const memo = new Map<Gene, BreedTreeWithCost | null>()
 
-    const worker = (child: Gene): BreedTreeWithCost | null => {
+    const worker = memoizeAsyncRecursiveFunction1(async (memoizeWorker: (child: Gene) => Promise<BreedTreeWithCost | null>, child) => {
+
+        // スレッドを譲る
+        await yielder()
 
         // 始祖の中に子が含まれるなら返す
         if (rootSet.has(child)) {
             const tree: BreedTreeWithCost = [0, ["Root", child]]
-            memo.set(child, tree)
             return tree
         }
-        // メモ
-        const result = memo.get(child)
-        if (result !== undefined) { return result }
 
         // 循環参照
         if (visitedGeneSet.has(child)) { return null }
@@ -436,9 +464,9 @@ export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], chil
         for (const [parent1, parent2] of pairs) {
 
             // 親が生まれる交配木を取得
-            const tree1 = worker(parent1)
+            const tree1 = await memoizeWorker(parent1)
             if (tree1 == null) { continue }
-            const tree2 = worker(parent2)
+            const tree2 = await memoizeWorker(parent2)
             if (tree2 == null) { continue }
 
             // 交配のコストを計算
@@ -453,17 +481,12 @@ export const findBreedTree = (kind: FlowerKind, rootGenes: readonly Gene[], chil
             ]
         }
 
-        if (minCostTree == null) {
-            memo.set(child, null)
-            return null
-        }
+        if (minCostTree == null) { return null }
 
         visitedGeneSet.delete(child)
-
-        memo.set(child, minCostTree)
         return minCostTree
-    }
-    return worker(childGene)?.[1]
+    })
+    return (await worker(childGene))?.[1]
 }
 
 /** ゴール遺伝子を子に含む交配ペアを返す */
@@ -485,22 +508,23 @@ type ArrayMin<element, minLength extends number> = ArrayMinWorker<element, minLe
 const isArrayMin = <T, N extends number>(array: T[], minLength: N): array is ArrayMin<T, N> =>
     array.length >= minLength
 
-export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerGene[], goals: readonly FlowerGene[], options?: FindBreedTreeOptions) => {
+export const findBreedTreesOfGoals = async (kind: FlowerKind, starts: readonly FlowerGene[], goals: readonly FlowerGene[], options?: FindBreedTreeOptions) => {
     const filledOptions = fillOptions(findBreedTreeOptionsSpec, options)
     const goalSet = new Set(goals)
     const pairs = findBreedPairs(kind, goals, filledOptions)
 
     // 交配ペアの親を生成する交配木を求める
-    const trees = pairs.reduce((result: (BreedMulti | BreedTree)[], { parent1, parent2 }) => {
+    const result: (BreedMulti | BreedTree)[] = []
+    for (const { parent1, parent2 } of pairs) {
 
         // 親がゴールに含まれるなら除外
-        if (goalSet.has(parent1) || goalSet.has(parent2)) { return result }
+        if (goalSet.has(parent1) || goalSet.has(parent2)) { continue }
 
-        const tree1 = findBreedTree(kind, starts, parent1)
-        if (!tree1) { return result }
+        const tree1 = await findBreedTree(kind, starts, parent1)
+        if (!tree1) { continue }
 
-        const tree2 = findBreedTree(kind, starts, parent2)
-        if (!tree2) { return result }
+        const tree2 = await findBreedTree(kind, starts, parent2)
+        if (!tree2) { continue }
 
         const children: FlowerGene[] = []
         const childSet = new Set<FlowerGene>()
@@ -512,15 +536,14 @@ export const findBreedTreesOfGoals = (kind: FlowerKind, starts: readonly FlowerG
         })
         if (isArrayMin(children, 2)) {
             result.push(["BreedMulti", children, tree1, tree2])
-            return result
+            continue
         }
         if (isArrayMin(children, 1)) {
             result.push(["Breed", children[0], tree1, tree2])
-            return result
+            continue
         }
-        return result
-    }, [])
-    return trees
+    }
+    return result
 }
 
 export type Breed = Readonly<{
