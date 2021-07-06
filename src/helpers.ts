@@ -25,15 +25,15 @@ export const extendArray = <T>(array: (T | undefined)[], minLength: number) => {
 type itemAtNegativeIndexWorker<items extends readonly any[], negativeIndex extends number, skipCount extends NatKind> =
     items extends readonly [...infer heads, infer last]
     ? (
-        `-${toNumberN<addN<skipCount, Nat[1]>>}` extends `${negativeIndex}`
+        `-${toNumberN<addN<skipCount, Nat<1>>>}` extends `${negativeIndex}`
         ? last
-        : itemAtNegativeIndexWorker<heads, negativeIndex, addN<skipCount, Nat[1]>>
+        : itemAtNegativeIndexWorker<heads, negativeIndex, addN<skipCount, Nat<1>>>
     )
     : undefined
 
 type getItem<items extends readonly any[], indexOrNegativeInteger extends number> =
     sign<indexOrNegativeInteger> extends -1
-    ? itemAtNegativeIndexWorker<items, indexOrNegativeInteger, Nat[0]>
+    ? itemAtNegativeIndexWorker<items, indexOrNegativeInteger, Nat<0>>
     : items[indexOrNegativeInteger]
 
 export type ObjectKey = number | string
